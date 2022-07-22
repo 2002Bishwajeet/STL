@@ -3,10 +3,10 @@
 
 #include <algorithm>
 #include <array>
-#include <assert.h>
+#include <cassert>
+#include <cstdint>
+#include <cstdlib>
 #include <new>
-#include <stdint.h>
-#include <stdlib.h>
 
 #if _HAS_CXX17 && !defined(_M_CEE)
 #define HAS_PARALLEL_ALGORITHMS 1
@@ -113,8 +113,8 @@ void test_more() {
 
 struct int_ish {
     /* implicit */ int_ish(int init) : value(init) {}
-    int_ish(const int_ish&) = delete;
-    int_ish(int_ish&&)      = default;
+    int_ish(const int_ish&)            = delete;
+    int_ish(int_ish&&)                 = default;
     int_ish& operator=(const int_ish&) = delete;
 
     int_ish& operator=(int_ish&& rhs) {
@@ -201,7 +201,7 @@ void test_stability() {
 
 void test_after_skipping_in_position_overhaul() {
     g_max_memory = prohibit_attempts_to_allocate;
-    { // check that 1 element trivial cases don't explode
+    { // check that 1 element trivial cases don't fail
         array<int, 1> a = {{5}};
         inplace_merge(a.begin(), a.begin(), a.begin()); // empty degenerate case
         inplace_merge(a.begin(), a.begin(), a.end()); // first partition eliminates everything degenerate case

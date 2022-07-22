@@ -453,11 +453,11 @@ namespace test {
             ++ptr_;
         }
 
-        [[nodiscard]] constexpr friend Element&& iter_move(iterator const& i) requires at_least<input> {
+        [[nodiscard]] friend constexpr Element&& iter_move(iterator const& i) requires at_least<input> {
             return std::move(*i.ptr_);
         }
 
-        constexpr friend void iter_swap(iterator const& x, iterator const& y)
+        friend constexpr void iter_swap(iterator const& x, iterator const& y)
             noexcept(std::is_nothrow_swappable_v<Element>) requires at_least<input> && std::swappable<Element> {
             ranges::swap(*x.ptr_, *y.ptr_);
         }
@@ -650,7 +650,7 @@ namespace test {
             range_base() = delete;
             constexpr explicit range_base(span<Element> elements) noexcept : elements_{elements} {}
 
-            range_base(const range_base&) = delete;
+            range_base(const range_base&)            = delete;
             range_base& operator=(const range_base&) = delete;
 
         protected:
@@ -697,7 +697,7 @@ namespace test {
             constexpr range_base() = default;
             constexpr explicit range_base(span<Element> elements) noexcept : elements_{elements} {}
 
-            constexpr range_base(const range_base&) = default;
+            constexpr range_base(const range_base&)            = default;
             constexpr range_base& operator=(const range_base&) = default;
 
             constexpr range_base(range_base&& that) noexcept
@@ -891,7 +891,7 @@ struct with_output_iterators {
 template <class Continuation, class Element>
 struct with_writable_iterators {
     template <class... Args>
-    static constexpr void call() {
+    static constexpr bool call() {
         using namespace test;
         using test::iterator;
 
@@ -902,6 +902,8 @@ struct with_writable_iterators {
             iterator<input, Element, CanDifference::no, CanCompare::no, ProxyRef::yes>>();
 
         with_output_iterators<Continuation, Element>::template call<Args...>();
+
+        return true;
     }
 };
 
@@ -1338,7 +1340,7 @@ struct get_nth_fn {
         test::proxy_reference<T, Elem> r) const noexcept requires requires {
         (*this)(r.peek());
     }
-    { return (*this) (r.peek()); }
+    { return (*this)(r.peek()); }
 };
 inline constexpr get_nth_fn<0> get_first;
 inline constexpr get_nth_fn<1> get_second;
