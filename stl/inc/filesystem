@@ -3,23 +3,20 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#pragma once
 #ifndef _FILESYSTEM_
 #define _FILESYSTEM_
 #include <yvals_core.h>
 #if _STL_COMPILER_PREPROCESSOR
 
 #if !_HAS_CXX17
-#pragma message("The contents of <filesystem> are available only with C++17 or later.")
+_EMIT_STL_WARNING(STL4038, "The contents of <filesystem> are available only with C++17 or later.");
 #else // ^^^ !_HAS_CXX17 / _HAS_CXX17 vvv
 #include <algorithm>
 #include <chrono>
 #include <cwchar>
 #include <iomanip>
-#include <list>
 #include <locale>
 #include <memory>
-#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -39,34 +36,11 @@ _STL_DISABLE_CLANG_WARNINGS
 
 _STD_BEGIN
 namespace filesystem {
-    // We would really love to use the proper way of building error_code by specializing
-    // is_error_code_enum and make_error_code for __std_win_error, but because:
-    //   1. We would like to keep the definition of __std_win_error in xfilesystem_abi.h
-    //   2. and xfilesystem_abi.h cannot include <system_error>
-    //   3. and specialization of is_error_code_enum and overload of make_error_code
-    //      need to be kept together with the enum (see limerick in N4810 [temp.expl.spec]/7)
-    // we resort to using this _Make_ec helper.
-    _NODISCARD inline error_code _Make_ec(__std_win_error _Errno) noexcept { // make an error_code
-        return {static_cast<int>(_Errno), _STD system_category()};
-    }
-
-    [[noreturn]] inline void _Throw_system_error_from_std_win_error(const __std_win_error _Errno) {
-        _THROW(system_error{_Make_ec(_Errno)});
-    }
-
-    _NODISCARD inline int _Check_convert_result(const __std_fs_convert_result _Result) {
-        if (_Result._Err != __std_win_error::_Success) {
-            _Throw_system_error_from_std_win_error(_Result._Err);
-        }
-
-        return _Result._Len;
-    }
-
     _NODISCARD inline wstring _Convert_narrow_to_wide(const __std_code_page _Code_page, const string_view _Input) {
         wstring _Output;
 
         if (!_Input.empty()) {
-            if (_Input.size() > static_cast<size_t>(INT_MAX)) {
+            if (!_STD _In_range<int>(_Input.size())) {
                 _Throw_system_error(errc::invalid_argument);
             }
 
@@ -82,30 +56,6 @@ namespace filesystem {
         return _Output;
     }
 
-    template <class _Traits, class _Alloc>
-    _NODISCARD basic_string<typename _Traits::char_type, _Traits, _Alloc> _Convert_wide_to_narrow(
-        const __std_code_page _Code_page, const wstring_view _Input, const _Alloc& _Al) {
-        basic_string<typename _Traits::char_type, _Traits, _Alloc> _Output(_Al);
-
-        if (!_Input.empty()) {
-            if (_Input.size() > static_cast<size_t>(INT_MAX)) {
-                _Throw_system_error(errc::invalid_argument);
-            }
-
-            const int _Len = _Check_convert_result(__std_fs_convert_wide_to_narrow(
-                _Code_page, _Input.data(), static_cast<int>(_Input.size()), nullptr, 0));
-
-            _Output.resize(static_cast<size_t>(_Len));
-
-            const auto _Data_as_char = reinterpret_cast<char*>(_Output.data());
-
-            (void) _Check_convert_result(__std_fs_convert_wide_to_narrow(
-                _Code_page, _Input.data(), static_cast<int>(_Input.size()), _Data_as_char, _Len));
-        }
-
-        return _Output;
-    }
-
     // More lenient version of _Convert_wide_to_narrow: Instead of failing on non-representable characters,
     // replace them with a replacement character.
     template <class _Traits, class _Alloc>
@@ -114,7 +64,7 @@ namespace filesystem {
         basic_string<typename _Traits::char_type, _Traits, _Alloc> _Output(_Al);
 
         if (!_Input.empty()) {
-            if (_Input.size() > static_cast<size_t>(INT_MAX)) {
+            if (!_STD _In_range<int>(_Input.size())) {
                 _Throw_system_error(errc::invalid_argument);
             }
 
@@ -203,7 +153,7 @@ namespace filesystem {
         else if constexpr (is_same_v<_EcharT, char8_t>) {
             return _Convert_wide_to_narrow<_Traits>(__std_code_page::_Utf8, _Input, _Al);
         }
-#endif // __cpp_char8_t
+#endif // defined(__cpp_char8_t)
         else if constexpr (is_same_v<_EcharT, char32_t>) {
             return _Convert_wide_to_utf32<_Traits>(_Input, _Al);
         } else { // wchar_t, char16_t
@@ -212,26 +162,26 @@ namespace filesystem {
     }
 
     template <class _Ty, class = void>
-    inline constexpr bool _Is_Source_impl = false;
+    constexpr bool _Is_Source_impl = false;
 
     template <class _Ty>
-    inline constexpr bool _Is_Source_impl<_Ty, void_t<typename iterator_traits<_Ty>::value_type>> =
+    constexpr bool _Is_Source_impl<_Ty, void_t<typename iterator_traits<_Ty>::value_type>> =
         _Is_EcharT<typename iterator_traits<_Ty>::value_type>;
 
     template <class _Ty>
-    inline constexpr bool _Is_Source = _Is_Source_impl<decay_t<_Ty>>;
+    constexpr bool _Is_Source = _Is_Source_impl<decay_t<_Ty>>;
 
-    class path;
+    _EXPORT_STD class path;
 
     template <>
     inline constexpr bool _Is_Source<path> = false; // to avoid constraint recursion via the converting constructor and
                                                     // iterator_traits when determining if path is copyable.
 
     template <class _Elem, class _Traits, class _Alloc>
-    inline constexpr bool _Is_Source<basic_string<_Elem, _Traits, _Alloc>> = _Is_EcharT<_Elem>;
+    constexpr bool _Is_Source<basic_string<_Elem, _Traits, _Alloc>> = _Is_EcharT<_Elem>;
 
     template <class _Elem, class _Traits>
-    inline constexpr bool _Is_Source<basic_string_view<_Elem, _Traits>> = _Is_EcharT<_Elem>;
+    constexpr bool _Is_Source<basic_string_view<_Elem, _Traits>> = _Is_EcharT<_Elem>;
 
     struct _Normal_conversion {};
 
@@ -253,7 +203,7 @@ namespace filesystem {
     template <class _Conversion>
     _NODISCARD wstring _Convert_stringoid_to_wide(const wstring_view _Input, _Conversion) {
         static_assert(
-            is_same_v<_Conversion, _Normal_conversion>, "invalid value_type, see N4810 D.17 [depr.fs.path.factory]/1");
+            is_same_v<_Conversion, _Normal_conversion>, "invalid value_type, see N4950 [depr.fs.path.factory]/1");
         return wstring{_Input};
     }
 
@@ -265,19 +215,19 @@ namespace filesystem {
         const string_view _Input_as_char{reinterpret_cast<const char*>(_Input.data()), _Input.size()};
         return _Convert_narrow_to_wide(__std_code_page::_Utf8, _Input_as_char);
     }
-#endif // __cpp_char8_t
+#endif // defined(__cpp_char8_t)
 
     template <class _Conversion>
     _NODISCARD wstring _Convert_stringoid_to_wide(const u16string_view _Input, _Conversion) {
         static_assert(
-            is_same_v<_Conversion, _Normal_conversion>, "invalid value_type, see N4810 D.17 [depr.fs.path.factory]/1");
+            is_same_v<_Conversion, _Normal_conversion>, "invalid value_type, see N4950 [depr.fs.path.factory]/1");
         return wstring{_Input.data(), _Input.data() + _Input.size()};
     }
 
     template <class _Conversion>
     _NODISCARD wstring _Convert_stringoid_to_wide(const u32string_view _Input, _Conversion) {
         static_assert(
-            is_same_v<_Conversion, _Normal_conversion>, "invalid value_type, see N4810 D.17 [depr.fs.path.factory]/1");
+            is_same_v<_Conversion, _Normal_conversion>, "invalid value_type, see N4950 [depr.fs.path.factory]/1");
         return _Convert_utf32_to_wide(_Input);
     }
 
@@ -375,7 +325,7 @@ namespace filesystem {
                 return _Output;
 
             case codecvt_base::partial:
-                // N4810 28.4.1.4.2 [locale.codecvt.virtuals]/5:
+                // N4950 [locale.codecvt.virtuals]/5:
                 // "A return value of partial, if (from_next == from_end), indicates that either the
                 // destination sequence has not absorbed all the available destination elements,
                 // or that additional source elements are needed before another destination element can be produced."
@@ -393,6 +343,14 @@ namespace filesystem {
             }
         }
     }
+
+    struct _Is_slash_oper { // predicate testing if input is a preferred-separator or fallback-separator
+        _NODISCARD _STATIC_CALL_OPERATOR constexpr bool operator()(const wchar_t _Ch) _CONST_CALL_OPERATOR {
+            return _Ch == L'\\' || _Ch == L'/';
+        }
+    };
+
+    inline constexpr _Is_slash_oper _Is_slash{};
 
     template <class _Ty>
     _NODISCARD _Ty _Unaligned_load(const void* _Ptr) { // load a _Ty from _Ptr
@@ -429,7 +387,7 @@ namespace filesystem {
         // * \\server\share
         //   We parse \\server as root-name, \ as root-directory, and share as the first element in relative-path.
         //   Technically, Windows considers all of \\server\share the logical "root", but for purposes
-        //   of decomposition we want those split, so that path(R"(\\server\share)").replace_filename("other_share")
+        //   of decomposition we want those split, so that path{R"(\\server\share)"}.replace_filename("other_share")
         //   is \\server\other_share
         // * \\?\device
         // * \??\device
@@ -661,16 +619,16 @@ namespace filesystem {
     template <class _Base_iter>
     class _Path_iterator;
 
-    class path {
+    _EXPORT_STD class path {
         template <class _Base_iter>
         friend class _Path_iterator;
-        friend inline __std_win_error _Absolute(path& _Result, const wstring& _Text);
+        friend inline path absolute(const path& _Input, error_code& _Ec);
         friend inline __std_win_error _Canonical(path& _Result, const wstring& _Text);
         friend inline path temp_directory_path(error_code& _Ec);
-        friend inline __std_win_error _Current_path(path& _Result) noexcept;
+        friend inline path current_path(error_code& _Ec);
         friend inline void current_path(const path& _To);
         friend inline void current_path(const path& _To, error_code& _Ec) noexcept;
-        friend inline __std_win_error _Read_symlink(const path& _Symlink_path, path& _Result) noexcept;
+        friend inline __std_win_error _Read_symlink(const path& _Symlink_path, path& _Result);
 
     public:
         using value_type  = wchar_t;
@@ -701,7 +659,7 @@ namespace filesystem {
         template <class _InIt>
         path(_InIt _First, _InIt _Last, format = auto_format) : _Text(_Convert_range_to_wide(_First, _Last)) {
             // format has no meaning for this implementation, as the generic grammar is acceptable as a native path
-            static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4810 29.11.4 [fs.req]/3");
+            static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4950 [fs.req]/3");
         }
 
         template <class _Src, enable_if_t<_Is_Source<_Src>, int> = 0>
@@ -710,15 +668,14 @@ namespace filesystem {
             // format has no meaning for this implementation, as the generic grammar is acceptable as a native path
             using _Stringoid = decltype(_Stringoid_from_Source(_Source));
             static_assert(is_same_v<typename _Stringoid::value_type, char>,
-                "invalid value_type, see N4810 29.11.7.4.1 [fs.path.construct]/6");
+                "invalid value_type, see N4950 [fs.path.construct]/5");
         }
 
         template <class _InIt>
         path(_InIt _First, _InIt _Last, const locale& _Loc, format = auto_format)
             : _Text(_Convert_stringoid_with_locale_to_wide(_Stringoid_from_range(_First, _Last), _Loc)) {
             // format has no meaning for this implementation, as the generic grammar is acceptable as a native path
-            static_assert(is_same_v<_Iter_value_t<_InIt>, char>,
-                "invalid value_type, see N4810 29.11.7.4.1 [fs.path.construct]/6");
+            static_assert(is_same_v<_Iter_value_t<_InIt>, char>, "invalid value_type, see N4950 [fs.path.construct]/5");
         }
 
         path& operator=(string_type&& _Source) noexcept /* strengthened */ {
@@ -747,7 +704,7 @@ namespace filesystem {
 
         template <class _InIt>
         path& assign(_InIt _First, _InIt _Last) { // set native() to [_First, _Last)
-            static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4810 29.11.4 [fs.req]/3");
+            static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4950 [fs.req]/3");
             _Text = _Convert_range_to_wide(_First, _Last);
             return *this;
         }
@@ -755,12 +712,12 @@ namespace filesystem {
         path& operator/=(const path& _Other) {
             // set *this to the path lexically resolved by _Other relative to *this
             // examples:
-            // path("cat") / "c:/dog"; // yields "c:/dog"
-            // path("cat") / "c:"; // yields "c:"
-            // path("c:") / ""; // yields "c:"
-            // path("c:cat") / "/dog"; // yields "c:/dog"
-            // path("c:cat") / "c:dog"; // yields "c:cat/dog"
-            // path("c:cat") / "d:dog"; // yields "d:dog"
+            // path{"cat"} / "c:/dog"; // yields "c:/dog"
+            // path{"cat"} / "c:"; // yields "c:"
+            // path{"c:"} / ""; // yields "c:"
+            // path{"c:cat"} / "/dog"; // yields "c:/dog"
+            // path{"c:cat"} / "c:dog"; // yields "c:cat/dog"
+            // path{"c:cat"} / "d:dog"; // yields "d:dog"
             // several places herein quote the standard, but the standard's variable p is replaced with _Other
 
             if (_Other.is_absolute()) { // if _Other.is_absolute(), then op=(_Other)
@@ -820,18 +777,18 @@ namespace filesystem {
 
         template <class _Src, enable_if_t<_Is_Source<_Src>, int> = 0>
         path& operator/=(const _Src& _Source) {
-            return operator/=(path(_Source));
+            return operator/=(path{_Source});
         }
 
         template <class _Src, enable_if_t<_Is_Source<_Src>, int> = 0>
         path& append(const _Src& _Source) {
-            return operator/=(path(_Source));
+            return operator/=(path{_Source});
         }
 
         template <class _InIt>
         path& append(_InIt _First, _InIt _Last) {
-            static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4810 29.11.4 [fs.req]/3");
-            return operator/=(path(_First, _Last));
+            static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4950 [fs.req]/3");
+            return operator/=(path{_First, _Last});
         }
 
         path& operator+=(const path& _Added) { // concat _Added to native()
@@ -864,23 +821,23 @@ namespace filesystem {
 
         template <class _Src, enable_if_t<_Is_Source<_Src>, int> = 0>
         path& operator+=(const _Src& _Added) { // concat _Added to native()
-            return operator+=(path(_Added)._Text);
+            return operator+=(path{_Added}._Text);
         }
 
         template <class _EcharT, enable_if_t<_Is_EcharT<_EcharT>, int> = 0>
         path& operator+=(const _EcharT _Added) { // concat _Added to native()
-            return operator+=(path(&_Added, &_Added + 1)._Text);
+            return operator+=(path{&_Added, &_Added + 1}._Text);
         }
 
         template <class _Src, enable_if_t<_Is_Source<_Src>, int> = 0>
         path& concat(const _Src& _Added) { // concat _Added to native()
-            return operator+=(path(_Added)._Text);
+            return operator+=(path{_Added}._Text);
         }
 
         template <class _InIt>
         path& concat(_InIt _First, _InIt _Last) { // concat [_First, _Last) to native()
-            static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4810 29.11.4 [fs.req]/3");
-            return operator+=(path(_First, _Last)._Text);
+            static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4950 [fs.req]/3");
+            return operator+=(path{_First, _Last}._Text);
         }
 
         void clear() noexcept { // set *this to the empty path
@@ -990,9 +947,9 @@ namespace filesystem {
         _NODISCARD auto u8string() const { // convert the native path from this instance into a UTF-8 string
 #ifdef __cpp_lib_char8_t
             using _U8Ty = char8_t;
-#else // ^^^ __cpp_lib_char8_t / !__cpp_lib_char8_t vvv
+#else // ^^^ defined(__cpp_lib_char8_t) / !defined(__cpp_lib_char8_t) vvv
             using _U8Ty = char;
-#endif // __cpp_lib_char8_t
+#endif // ^^^ !defined(__cpp_lib_char8_t) ^^^
             return _Convert_wide_to_narrow<char_traits<_U8Ty>>(__std_code_page::_Utf8, _Text, allocator<_U8Ty>{});
         }
 
@@ -1237,7 +1194,7 @@ namespace filesystem {
             constexpr wstring_view _Dot     = L"."sv;
             constexpr wstring_view _Dot_dot = L".."sv;
 
-            // N4810 29.11.7.1 [fs.path.generic]/6:
+            // N4950 [fs.path.generic]/6:
             // "Normalization of a generic format pathname means:"
 
             // "1. If the path is empty, stop."
@@ -1253,80 +1210,91 @@ namespace filesystem {
             _STD replace(_Normalized.begin(), _Normalized.end(), L'/', L'\\');
 
             // "3. Replace each directory-separator with a preferred-separator.
-            // [ Note: The generic pathname grammar (29.11.7.1) defines directory-separator
+            // [ Note 4: The generic pathname grammar defines directory-separator
             // as one or more slashes and preferred-separators. -end note ]"
-            list<wstring_view> _Lst; // Empty wstring_view means directory-separator
-                                     // that will be normalized to a preferred-separator.
-                                     // Non-empty wstring_view means filename.
-            for (auto _Next = _Root_name_end; _Next != _Last;) {
-                if (_Is_slash(*_Next)) {
-                    if (_Lst.empty() || !_Lst.back().empty()) {
+            vector<wstring_view> _Vec; // Empty wstring_view means directory-separator
+                                       // that will be normalized to a preferred-separator.
+                                       // Non-empty wstring_view means filename.
+            _Vec.reserve(19); // avoid frequent re-allocations
+            bool _Has_root_directory = false; // true: there is a slash right after root-name.
+            auto _Ptr                = _Root_name_end;
+            if (_Ptr != _Last && _Is_slash(*_Ptr)) {
+                _Has_root_directory = true;
+                _Normalized += preferred_separator;
+                ++_Ptr;
+                while (_Ptr != _Last && _Is_slash(*_Ptr)) {
+                    ++_Ptr;
+                }
+            }
+            // _Vec will start with a filename (if not empty).
+            while (_Ptr != _Last) {
+                if (_Is_slash(*_Ptr)) {
+                    if (_Vec.empty() || !_Vec.back().empty()) {
                         // collapse one or more slashes and preferred-separators to one empty wstring_view
-                        _Lst.emplace_back();
+                        _Vec.emplace_back();
                     }
-
-                    ++_Next;
+                    ++_Ptr;
                 } else {
-                    const auto _Filename_end = _STD find_if(_Next + 1, _Last, _Is_slash);
-                    _Lst.emplace_back(_Next, static_cast<size_t>(_Filename_end - _Next));
-                    _Next = _Filename_end;
+                    const auto _Filename_end = _STD find_if(_Ptr + 1, _Last, _Is_slash);
+                    _Vec.emplace_back(_Ptr, static_cast<size_t>(_Filename_end - _Ptr));
+                    _Ptr = _Filename_end;
                 }
             }
 
             // "4. Remove each dot filename and any immediately following directory-separator."
-            for (auto _Next = _Lst.begin(); _Next != _Lst.end();) {
-                if (*_Next == _Dot) {
-                    _Next = _Lst.erase(_Next); // erase dot filename
-
-                    if (_Next != _Lst.end()) {
-                        _Next = _Lst.erase(_Next); // erase immediately following directory-separator
-                    }
-                } else {
-                    ++_Next;
-                }
-            }
-
             // "5. As long as any appear, remove a non-dot-dot filename immediately followed by a
             // directory-separator and a dot-dot filename, along with any immediately following directory-separator."
-            for (auto _Next = _Lst.begin(); _Next != _Lst.end();) {
-                auto _Prev = _Next;
-
-                ++_Next; // If we aren't going to erase, keep advancing.
-                         // If we're going to erase, _Next now points past the dot-dot filename.
-
-                if (*_Prev == _Dot_dot && _Prev != _Lst.begin() && --_Prev != _Lst.begin() && *--_Prev != _Dot_dot) {
-                    if (_Next != _Lst.end()) { // dot-dot filename has an immediately following directory-separator
-                        ++_Next;
-                    }
-
-                    _Lst.erase(_Prev, _Next); // _Next remains valid
-                }
-            }
-
             // "6. If there is a root-directory, remove all dot-dot filenames
             // and any directory-separators immediately following them.
-            // [ Note: These dot-dot filenames attempt to refer to nonexistent parent directories. -end note ]"
-            if (!_Lst.empty() && _Lst.front().empty()) { // we have a root-directory
-                for (auto _Next = _Lst.begin(); _Next != _Lst.end();) {
-                    if (*_Next == _Dot_dot) {
-                        _Next = _Lst.erase(_Next); // erase dot-dot filename
-
-                        if (_Next != _Lst.end()) {
-                            _Next = _Lst.erase(_Next); // erase immediately following directory-separator
+            // [ Note 5: These dot-dot filenames attempt to refer to nonexistent parent directories. -end note ]"
+            auto _New_end = _Vec.begin();
+            for (auto _Pos = _Vec.begin(); _Pos != _Vec.end();) {
+                const auto _Elem = *_Pos++; // _Pos points at a filename here; it points at end or a separator after ++.
+                if (_Elem == _Dot) {
+                    // ignore dot (and following separator).
+                    if (_Pos == _Vec.end()) {
+                        break;
+                    }
+                } else if (_Elem != _Dot_dot) {
+                    // append normal filename and separator.
+                    *_New_end++ = _Elem; // _New_end points at end or a separator after ++.
+                    if (_Pos == _Vec.end()) {
+                        break;
+                    }
+                    ++_New_end; // _New_end(<=_Pos) doesn't point at end; accept separator.
+                } else { // _Dot_dot
+                    if (_New_end != _Vec.begin() && _New_end[-2] != _Dot_dot) {
+                        // _New_end == _Vec.begin() + 2n here.
+                        // remove preceding non-dot-dot filename and separator.
+                        _New_end -= 2;
+                        if (_Pos == _Vec.end()) {
+                            break;
                         }
+                    } else if (!_Has_root_directory) {
+                        // due to 6, append dot-dot and separator only if !_Has_root_directory.
+                        *_New_end++ = _Dot_dot;
+                        if (_Pos == _Vec.end()) {
+                            break;
+                        }
+                        ++_New_end;
                     } else {
-                        ++_Next;
+                        // ignore dot-dot and separator.
+                        if (_Pos == _Vec.end()) {
+                            break;
+                        }
                     }
                 }
+                ++_Pos; // _Pos points at a separator here; it points at end or a filename after ++.
             }
+            _Vec.erase(_New_end, _Vec.end());
 
             // "7. If the last filename is dot-dot, remove any trailing directory-separator."
-            if (_Lst.size() >= 2 && _Lst.back().empty() && *(_STD prev(_Lst.end(), 2)) == _Dot_dot) {
-                _Lst.pop_back();
+            if (_Vec.size() >= 2 && _Vec.back().empty() && _Vec.end()[-2] == _Dot_dot) {
+                _Vec.pop_back();
             }
 
-            // Build up _Normalized by flattening _Lst.
-            for (const auto& _Elem : _Lst) {
+            // Build up _Normalized by flattening _Vec.
+            for (const auto& _Elem : _Vec) {
                 if (_Elem.empty()) {
                     _Normalized += preferred_separator;
                 } else {
@@ -1340,9 +1308,7 @@ namespace filesystem {
             }
 
             // "The result of normalization is a path in normal form, which is said to be normalized."
-            path _Result(_STD move(_Normalized));
-
-            return _Result;
+            return path(_STD move(_Normalized));
         }
 
         _NODISCARD inline path lexically_relative(const path& _Base) const;
@@ -1376,7 +1342,7 @@ namespace filesystem {
             // extract a path from a stream
             basic_string<_Elem, _Traits> _Tmp;
             _Istr >> _STD quoted(_Tmp);
-            _Path = _STD move(_Tmp); // obvious optimization not depicted in N4810 29.11.7.6 [fs.path.io]/3
+            _Path = _STD move(_Tmp); // obvious optimization not depicted in N4950 [fs.path.io]/3
             return _Istr;
         }
 
@@ -1408,9 +1374,38 @@ namespace filesystem {
         _NODISCARD_FRIEND bool operator>=(const path& _Left, const path& _Right) noexcept {
             return _Left.compare(_Right) >= 0;
         }
-#endif // !_HAS_CXX20
+#endif // ^^^ !_HAS_CXX20 ^^^
 
         _NODISCARD_FRIEND path operator/(const path& _Left, const path& _Right) { // append a pair of paths together
+            const auto _Right_size  = _Right._Text.size();
+            const auto _Right_first = _Right._Text.data();
+            const auto _Right_last  = _Right_first + _Right_size;
+
+            // Handle the most common case: !has_root_name(_Right) && !has_root_directory(_Right)
+            if (_Right_size != 0 && !_Has_drive_letter_prefix(_Right_first, _Right_last) && !_Is_slash(*_Right_first)) {
+                const auto _Left_size  = _Left._Text.size();
+                const auto _Left_first = _Left._Text.data();
+                const auto _Left_last  = _Left_first + _Left_size;
+
+                // Appending a slash to "X:" would make it an absolute path
+                const bool _Left_is_just_drive = _Left_size == 2 && _Is_drive_prefix(_Left_first);
+                const bool _Is_slash_needed    = _Left_size != 0 && !_Left_is_just_drive && !_Is_slash(_Left_last[-1]);
+
+                const auto _Total_size = _Left_size + static_cast<size_t>(_Is_slash_needed) + _Right_size;
+
+                path _Tmp;
+                _Tmp._Text._Resize_and_overwrite(_Total_size, [=](wchar_t* _Ptr, const size_t _Size) {
+                    _CSTD memcpy(_Ptr, _Left_first, _Left_size * sizeof(wchar_t));
+                    _Ptr += _Left_size;
+                    if (_Is_slash_needed) {
+                        *_Ptr++ = preferred_separator;
+                    }
+                    _CSTD memcpy(_Ptr, _Right_first, _Right_size * sizeof(wchar_t));
+                    return _Size;
+                });
+                return _Tmp;
+            }
+
             path _Tmp = _Left;
             _Tmp /= _Right;
             return _Tmp;
@@ -1420,23 +1415,23 @@ namespace filesystem {
         string_type _Text;
     };
 
-    template <class _Src, enable_if_t<_Is_Source<_Src>, int> = 0>
+    _EXPORT_STD template <class _Src, enable_if_t<_Is_Source<_Src>, int> = 0>
     _CXX20_DEPRECATE_U8PATH _NODISCARD path u8path(const _Src& _Source) { // construct a path from UTF-8 _Source
-        return path(_Convert_Source_to_wide(_Source, _Utf8_conversion{}));
+        return path{_Convert_Source_to_wide(_Source, _Utf8_conversion{})};
     }
 
-    template <class _InIt>
+    _EXPORT_STD template <class _InIt>
     _CXX20_DEPRECATE_U8PATH _NODISCARD path u8path(_InIt _First, _InIt _Last) {
         // construct a path from UTF-8 [_First, _Last)
-        static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4810 29.11.4 [fs.req]/3");
-        return path(_Convert_range_to_wide(_First, _Last, _Utf8_conversion{}));
+        static_assert(_Is_EcharT<_Iter_value_t<_InIt>>, "invalid value_type, see N4950 [fs.req]/3");
+        return path{_Convert_range_to_wide(_First, _Last, _Utf8_conversion{})};
     }
 
     template <class _Base_iter>
     class _Path_iterator { // almost bidirectional iterator for path
     public:
         // Note that the path::iterator can be decremented and can be dereferenced multiple times,
-        // but doesn't actually meet the forward iterator requirements. See N4810 29.11.7.5 [fs.path.itr]/2:
+        // but doesn't actually meet the forward iterator requirements. See N4950 [fs.path.itr]/2:
         //  ... for dereferenceable iterators a and b of type path::iterator with a == b, there is no requirement
         //  that *a and *b are bound to the same object
         // This means that you can't give path::iterator to std::reverse_iterator, as operator* there ends
@@ -1455,8 +1450,10 @@ namespace filesystem {
         _Path_iterator(const _Base_iter& _Position_, const path* _Mypath_) noexcept
             : _Position(_Position_), _Element(), _Mypath(_Mypath_) {}
 
-        _Path_iterator(const _Base_iter& _Position_, wstring_view _Element_text, const path* _Mypath_)
-            : _Position(_Position_), _Element(_Element_text), _Mypath(_Mypath_) {}
+        _Path_iterator(const _Base_iter& _Position_, const path& _Element_, const path* _Mypath_)
+            : _Position(_Position_), _Element(_Element_), _Mypath(_Mypath_) {}
+        _Path_iterator(const _Base_iter& _Position_, path&& _Element_, const path* _Mypath_)
+            : _Position(_Position_), _Element(_STD move(_Element_)), _Mypath(_Mypath_) {}
 
         _Path_iterator(const _Path_iterator&)            = default;
         _Path_iterator(_Path_iterator&&)                 = default;
@@ -1600,8 +1597,13 @@ namespace filesystem {
         using _Prevent_inheriting_unwrap = _Path_iterator;
 
         template <class _Iter2 = _Base_iter, enable_if_t<_Unwrappable_v<const _Iter2&>, int> = 0>
-        _NODISCARD _Path_iterator<_Unwrapped_t<const _Iter2&>> _Unwrapped() const {
-            return {_Position._Unwrapped(), _Element.native(), _Mypath};
+        _NODISCARD _Path_iterator<_Unwrapped_t<const _Iter2&>> _Unwrapped() const& {
+            return {_Position._Unwrapped(), _Element, _Mypath};
+        }
+        template <class _Iter2 = _Base_iter, enable_if_t<_Unwrappable_v<_Iter2>, int> = 0>
+        _NODISCARD _Path_iterator<_Unwrapped_t<_Iter2>> _Unwrapped() && noexcept {
+            _STL_INTERNAL_STATIC_ASSERT(_Has_nothrow_unwrapped<_Iter2>);
+            return {_Position._Unwrapped(), _STD move(_Element), _Mypath};
         }
 
         static constexpr bool _Unwrap_when_unverified = _Do_unwrap_when_unverified_v<_Base_iter>;
@@ -1625,11 +1627,11 @@ namespace filesystem {
         const path* _Mypath{};
     };
 
-    inline void swap(path& _Left, path& _Right) noexcept {
+    _EXPORT_STD inline void swap(path& _Left, path& _Right) noexcept {
         _Left.swap(_Right);
     }
 
-    _NODISCARD inline size_t hash_value(const path& _Path) noexcept {
+    _EXPORT_STD _NODISCARD inline size_t hash_value(const path& _Path) noexcept {
         // calculate a hash value for _Path
         // See path::compare; we effectively decompose the path with special handling for root_name, root_directory.
         // Examples:
@@ -1686,23 +1688,31 @@ namespace filesystem {
         return false;
     }
 
-    _NODISCARD inline path path::lexically_relative(const path& _Base) const {
+    _NODISCARD inline path path::lexically_relative(const path& _Base_raw) const {
         constexpr wstring_view _Dot     = L"."sv;
         constexpr wstring_view _Dot_dot = L".."sv;
 
+        // LWG-3699: `lexically_relative` on UNC drive paths (`\\?\C:\...`) results in a default-constructed value
+        // This avoids doing any unnecessary copies;
+        // the return value of `relative_path()` is lifetime-extended if necessary.
+        const bool _Both_unc_paths = _Is_drive_prefix_with_slash_slash_question(_Text)
+                                  && _Is_drive_prefix_with_slash_slash_question(_Base_raw._Text);
+        const path& _This = _Both_unc_paths ? relative_path() : *this;
+        const path& _Base = _Both_unc_paths ? _Base_raw.relative_path() : _Base_raw;
+
         path _Result;
 
-        if (root_name() != _Base.root_name() || is_absolute() != _Base.is_absolute()
-            || (!has_root_directory() && _Base.has_root_directory()) || _Relative_path_contains_root_name(*this)
-            || _Relative_path_contains_root_name(_Base)) {
+        if (_This.root_name() != _Base.root_name() || _This.is_absolute() != _Base.is_absolute()
+            || (!_This.has_root_directory() && _Base.has_root_directory())
+            || (_Relative_path_contains_root_name(_This) || _Relative_path_contains_root_name(_Base))) {
             return _Result;
         }
 
-        const iterator _This_end   = end();
+        const iterator _This_end   = _This.end();
         const iterator _Base_begin = _Base.begin();
         const iterator _Base_end   = _Base.end();
 
-        auto _Mismatched  = _STD mismatch(begin(), _This_end, _Base_begin, _Base_end);
+        auto _Mismatched  = _STD mismatch(_This.begin(), _This_end, _Base_begin, _Base_end);
         iterator& _A_iter = _Mismatched.first;
         iterator& _B_iter = _Mismatched.second;
 
@@ -1711,7 +1721,7 @@ namespace filesystem {
             return _Result;
         }
 
-        { // Skip root-name and root-directory elements, N4810 29.11.7.5 [fs.path.itr]/4.1, 4.2
+        { // Skip root-name and root-directory elements, N4950 [fs.path.itr]/4.1, 4.2
             ptrdiff_t _B_dist = _STD distance(_Base_begin, _B_iter);
 
             const ptrdiff_t _Base_root_dist =
@@ -1728,8 +1738,8 @@ namespace filesystem {
         for (; _B_iter != _Base_end; ++_B_iter) {
             const path& _Elem = *_B_iter;
 
-            if (_Elem.empty()) { // skip empty element, N4810 29.11.7.5 [fs.path.itr]/4.4
-            } else if (_Elem == _Dot) { // skip filename elements that are dot, N4810 29.11.7.4.11 [fs.path.gen]/4.2
+            if (_Elem.empty()) { // skip empty element, N4950 [fs.path.itr]/4.4
+            } else if (_Elem == _Dot) { // skip filename elements that are dot, N4950 [fs.path.gen]/3.6
             } else if (_Elem == _Dot_dot) {
                 --_Num;
             } else {
@@ -1780,7 +1790,7 @@ namespace filesystem {
         return iterator(_Text.cend(), this);
     }
 
-    class filesystem_error : public system_error { // base of all filesystem-error exceptions
+    _EXPORT_STD class filesystem_error : public system_error { // base of all filesystem-error exceptions
     public:
         filesystem_error(const string& _Message, const error_code _Errcode)
             : system_error(_Errcode, _Message), _What(runtime_error::what()) {}
@@ -1852,6 +1862,10 @@ namespace filesystem {
         _THROW(filesystem_error(_Op, _Path1, _Path2, _Make_ec(_Error)));
     }
 
+    [[noreturn]] inline void _Throw_fs_error(const char* _Op, const error_code& _Error) {
+        _THROW(filesystem_error(_Op, _Error));
+    }
+
     [[noreturn]] inline void _Throw_fs_error(const char* _Op, const error_code& _Error, const path& _Path1) {
         _THROW(filesystem_error(_Op, _Path1, _Error));
     }
@@ -1861,7 +1875,7 @@ namespace filesystem {
         _THROW(filesystem_error(_Op, _Path1, _Path2, _Error));
     }
 
-    enum class file_type {
+    _EXPORT_STD enum class file_type {
         none,
         not_found,
         regular,
@@ -1880,7 +1894,7 @@ namespace filesystem {
         junction // implementation-defined value indicating an NT junction
     };
 
-    enum class perms {
+    _EXPORT_STD enum class perms {
         none = 0,
 
         owner_read  = 0400,
@@ -1909,9 +1923,9 @@ namespace filesystem {
         _File_attribute_readonly = all & ~_All_write // returned for files with FILE_ATTRIBUTE_READONLY
     };
 
-    _BITMASK_OPS(perms)
+    _BITMASK_OPS(_EXPORT_STD, perms)
 
-    enum class copy_options {
+    _EXPORT_STD enum class copy_options {
         none = static_cast<int>(__std_fs_copy_options::_None),
 
         _Existing_mask     = static_cast<int>(__std_fs_copy_options::_Existing_mask),
@@ -1933,9 +1947,9 @@ namespace filesystem {
         _Unspecified_copy_prevention_tag = 0x10000 // to be removed by LWG-3057
     };
 
-    _BITMASK_OPS(copy_options)
+    _BITMASK_OPS(_EXPORT_STD, copy_options)
 
-    class file_status {
+    _EXPORT_STD class file_status {
     public:
         // [fs.file_status.cons], constructors and destructor
         file_status() noexcept = default;
@@ -2014,7 +2028,7 @@ namespace filesystem {
         perms _Myperms     = perms::unknown;
     };
 
-    _NODISCARD inline bool exists(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool exists(const file_status _Status) noexcept {
         // tests whether _Status indicates an existing file
         switch (_Status.type()) {
         case file_type::none:
@@ -2034,27 +2048,27 @@ namespace filesystem {
         }
     }
 
-    _NODISCARD inline bool is_block_file(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_block_file(const file_status _Status) noexcept {
         // tests whether _Status indicates a block file
         return _Status.type() == file_type::block;
     }
 
-    _NODISCARD inline bool is_character_file(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_character_file(const file_status _Status) noexcept {
         // tests whether _Status indicates a character file
         return _Status.type() == file_type::character;
     }
 
-    _NODISCARD inline bool is_directory(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_directory(const file_status _Status) noexcept {
         // tests whether _Status indicates a directory
         return _Status.type() == file_type::directory;
     }
 
-    _NODISCARD inline bool is_fifo(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_fifo(const file_status _Status) noexcept {
         // tests whether _Status indicates a fifo
         return _Status.type() == file_type::fifo;
     }
 
-    _NODISCARD inline bool is_other(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_other(const file_status _Status) noexcept {
         // tests whether _Status indicates other file types
         switch (_Status.type()) {
         case file_type::none:
@@ -2074,17 +2088,17 @@ namespace filesystem {
         }
     }
 
-    _NODISCARD inline bool is_regular_file(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_regular_file(const file_status _Status) noexcept {
         // tests whether _Status indicates a regular file
         return _Status.type() == file_type::regular;
     }
 
-    _NODISCARD inline bool is_socket(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_socket(const file_status _Status) noexcept {
         // tests whether _Status indicates a socket
         return _Status.type() == file_type::socket;
     }
 
-    _NODISCARD inline bool is_symlink(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_symlink(const file_status _Status) noexcept {
         // tests whether _Status indicates a symlink
         return _Status.type() == file_type::symlink;
     }
@@ -2108,12 +2122,15 @@ namespace filesystem {
         __std_fs_stats_flags::_Attributes | __std_fs_stats_flags::_Reparse_tag;
 
 #if _HAS_CXX20
-    using file_time_type = _CHRONO time_point<_CHRONO file_clock>;
+    _EXPORT_STD using file_time_type = _CHRONO time_point<_CHRONO file_clock>;
 #else // ^^^ _HAS_CXX20 / !_HAS_CXX20 vvv
     using file_time_type = _CHRONO time_point<filesystem::_File_time_clock>;
-#endif // ^^^ !_HAS_CXX20
+#endif // ^^^ !_HAS_CXX20 ^^^
 
-    class directory_entry {
+    struct _Dir_enum_impl;
+    struct _Recursive_dir_enum_impl;
+
+    _EXPORT_STD class directory_entry {
     public:
         // [fs.dir.entry.cons], constructors and destructor
         directory_entry() noexcept : _Cached_data{}, _Path() {}
@@ -2466,7 +2483,7 @@ namespace filesystem {
         _NODISCARD bool operator>=(const directory_entry& _Rhs) const noexcept {
             return _Path >= _Rhs._Path;
         }
-#endif // !_HAS_CXX20
+#endif // ^^^ !_HAS_CXX20 ^^^
 
         // [fs.dir.entry.io], inserter
         template <class _Elem, class _Traits>
@@ -2505,8 +2522,8 @@ namespace filesystem {
             return _Error;
         }
 
-        friend struct _Dir_enum_impl;
-        friend struct _Recursive_dir_enum_impl;
+        friend _Dir_enum_impl;
+        friend _Recursive_dir_enum_impl;
         friend void _Copy_impl(
             const directory_entry& _From, const _STD filesystem::path& _To, copy_options _Options, error_code& _Ec);
 
@@ -2514,8 +2531,10 @@ namespace filesystem {
         filesystem::path _Path;
     };
 
-    enum class directory_options { none = 0, follow_directory_symlink = 1, skip_permission_denied = 2 };
-    _BITMASK_OPS(directory_options)
+    _EXPORT_STD enum class directory_options { none = 0, follow_directory_symlink = 1, skip_permission_denied = 2 };
+    _BITMASK_OPS(_EXPORT_STD, directory_options)
+
+    _EXPORT_STD _NODISCARD inline bool exists(const path& _Target, error_code& _Ec) noexcept;
 
     struct _Dir_enum_impl {
         _NODISCARD static __std_win_error _Advance_and_reset_if_no_more_files(shared_ptr<_Dir_enum_impl>& _Ptr) {
@@ -2555,6 +2574,7 @@ namespace filesystem {
                 return __std_win_error::_File_not_found;
             }
 
+            const path _Original_path = _Path;
             _Path /= L"*"sv;
             auto _Error = _Dir._Open(_Path.c_str(), &_Data);
             if (_Error == __std_win_error::_Success) {
@@ -2564,6 +2584,13 @@ namespace filesystem {
             if (_Error == __std_win_error::_Access_denied
                 && _Bitmask_includes_any(_Options_arg, directory_options::skip_permission_denied)) {
                 _Error = __std_win_error::_No_more_files;
+            } else if (_Error == __std_win_error::_File_not_found) {
+                error_code _Ignored; // When exists() returns true, that implies that the error_code is successful.
+                // When exists() returns false, we don't want to interfere with _Open_dir()'s behavior,
+                // as it's going to return __std_win_error::_File_not_found.
+                if (_STD filesystem::exists(_Original_path, _Ignored)) {
+                    _Error = __std_win_error::_No_more_files; // Handle empty volumes, see GH-4291
+                }
             }
 
             return _Error;
@@ -2619,8 +2646,8 @@ namespace filesystem {
         _Find_file_handle _Dir;
     };
 
-    class directory_iterator;
-    class recursive_directory_iterator;
+    _EXPORT_STD class directory_iterator;
+    _EXPORT_STD class recursive_directory_iterator;
 
     struct _Directory_entry_proxy {
         _NODISCARD directory_entry operator*() && noexcept {
@@ -2636,7 +2663,7 @@ namespace filesystem {
         directory_entry _Entry;
     };
 
-    class directory_iterator {
+    _EXPORT_STD class directory_iterator {
     public:
         using iterator_category = input_iterator_tag;
         using value_type        = directory_entry;
@@ -2708,6 +2735,12 @@ namespace filesystem {
         }
 #endif // !_HAS_CXX20
 
+#if _HAS_CXX20
+        _NODISCARD bool operator==(default_sentinel_t) const noexcept {
+            return !_Impl;
+        }
+#endif // _HAS_CXX20
+
         _Directory_entry_proxy operator++(int) {
             _Directory_entry_proxy _Proxy(**this);
             ++*this;
@@ -2722,11 +2755,11 @@ namespace filesystem {
         shared_ptr<_Dir_enum_impl> _Impl;
     };
 
-    _NODISCARD inline directory_iterator begin(directory_iterator _Iter) noexcept {
+    _EXPORT_STD _NODISCARD inline directory_iterator begin(directory_iterator _Iter) noexcept {
         return _Iter;
     }
 
-    _NODISCARD inline directory_iterator end(directory_iterator) noexcept {
+    _EXPORT_STD _NODISCARD inline directory_iterator end(directory_iterator) noexcept {
         return {};
     }
 
@@ -2854,7 +2887,7 @@ namespace filesystem {
             : _Dir_enum_impl(_STD move(_Create_data)), _Options(_Options_arg) {}
     };
 
-    class recursive_directory_iterator {
+    _EXPORT_STD class recursive_directory_iterator {
     public:
         using iterator_category = input_iterator_tag;
         using value_type        = directory_entry;
@@ -2958,6 +2991,12 @@ namespace filesystem {
         }
 #endif // !_HAS_CXX20
 
+#if _HAS_CXX20
+        _NODISCARD bool operator==(default_sentinel_t) const noexcept {
+            return !_Impl;
+        }
+#endif // _HAS_CXX20
+
         _Directory_entry_proxy operator++(int) {
             _Directory_entry_proxy _Proxy(**this);
             ++*this;
@@ -2968,53 +3007,43 @@ namespace filesystem {
         shared_ptr<_Recursive_dir_enum_impl> _Impl;
     };
 
-    _NODISCARD inline recursive_directory_iterator begin(recursive_directory_iterator _Iter) noexcept {
+    _EXPORT_STD _NODISCARD inline recursive_directory_iterator begin(recursive_directory_iterator _Iter) noexcept {
         return _Iter;
     }
 
-    _NODISCARD inline recursive_directory_iterator end(recursive_directory_iterator) noexcept {
+    _EXPORT_STD _NODISCARD inline recursive_directory_iterator end(recursive_directory_iterator) noexcept {
         return {};
     }
 
-    _NODISCARD inline __std_win_error _Absolute(path& _Result, const wstring& _Text) { // pre: _Result.empty()
-        if (_Text.empty()) {
-            return __std_win_error::_Success;
-        }
-
-        _Result._Text.resize(__std_fs_max_path);
-        __std_win_error _Err;
-        for (;;) {
-            const auto _Requested_size = static_cast<unsigned long>(_Result._Text.size());
-            const auto _Full_path_result =
-                __std_fs_get_full_path_name(_Text.c_str(), _Requested_size, _Result._Text.data());
-            _Err = _Full_path_result._Error;
-            _Result._Text.resize(_Full_path_result._Size);
-            if (_Full_path_result._Size < _Requested_size) {
-                break;
-            }
-        }
-
-        return _Err;
-    }
-
-    _NODISCARD inline path absolute(const path& _Input) {
-        // normalize path according to system semantics, without touching the disk
-        // calls GetFullPathNameW
-        path _Result;
-        const auto _Err = _Absolute(_Result, _Input.native());
-        if (_Err != __std_win_error::_Success) {
-            _Throw_fs_error("absolute", _Err, _Input);
-        }
-
-        return _Result;
-    }
-
-    _NODISCARD inline path absolute(const path& _Input, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path absolute(const path& _Input, error_code& _Ec) {
         // normalize path according to system semantics, without touching the disk
         // calls GetFullPathNameW
         _Ec.clear(); // for exception safety
         path _Result;
-        _Ec = _Make_ec(_Absolute(_Result, _Input.native()));
+        if (!_Input._Text.empty()) {
+            _Result._Text.resize(__std_fs_max_path);
+            for (;;) {
+                const auto _Requested_size = static_cast<unsigned long>(_Result._Text.size());
+                const auto _Full_path_result =
+                    __std_fs_get_full_path_name(_Input._Text.c_str(), _Requested_size, _Result._Text.data());
+                _Result._Text.resize(_Full_path_result._Size);
+                if (_Full_path_result._Size < _Requested_size) {
+                    _Ec = _Make_ec(_Full_path_result._Error);
+                    break;
+                }
+            }
+        }
+        return _Result;
+    }
+
+    _EXPORT_STD _NODISCARD inline path absolute(const path& _Input) {
+        // normalize path according to system semantics, without touching the disk
+        // calls GetFullPathNameW
+        error_code _Ec;
+        path _Result(_STD filesystem::absolute(_Input, _Ec));
+        if (_Ec) {
+            _Throw_fs_error("absolute", _Ec, _Input);
+        }
         return _Result;
     }
 
@@ -3071,7 +3100,7 @@ namespace filesystem {
         return __std_win_error::_Success;
     }
 
-    _NODISCARD inline path canonical(const path& _Input) {
+    _EXPORT_STD _NODISCARD inline path canonical(const path& _Input) {
         // resolve the final path according to system semantics, by opening the file
         // calls GetFinalPathNameByHandleW
         path _Result;
@@ -3083,7 +3112,7 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline path canonical(const path& _Input, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path canonical(const path& _Input, error_code& _Ec) {
         // resolve the final path according to system semantics, by opening the file
         // calls GetFinalPathNameByHandleW
         _Ec.clear(); // for exception safety
@@ -3129,7 +3158,7 @@ namespace filesystem {
         return _Cleaned_link;
     }
 
-    inline void create_directory_symlink(const path& _To, const path& _New_symlink) {
+    _EXPORT_STD inline void create_directory_symlink(const path& _To, const path& _New_symlink) {
         // create a symlink for a directory, _New_symlink -> _To
         const auto _Cleaned = _Get_cleaned_symlink_target(_To);
         if (!_Cleaned) {
@@ -3143,7 +3172,8 @@ namespace filesystem {
         }
     }
 
-    inline void create_directory_symlink(const path& _To, const path& _New_symlink, error_code& _Ec) noexcept {
+    _EXPORT_STD inline void create_directory_symlink(
+        const path& _To, const path& _New_symlink, error_code& _Ec) noexcept {
         // create a symlink for a directory, _New_symlink -> _To
         const auto _Cleaned = _Get_cleaned_symlink_target(_To);
         if (_Cleaned) {
@@ -3154,7 +3184,7 @@ namespace filesystem {
         }
     }
 
-    inline void create_hard_link(const path& _To, const path& _New_hard_link) {
+    _EXPORT_STD inline void create_hard_link(const path& _To, const path& _New_hard_link) {
         // create a hard link for a file, _New_hard_link -> _To
         // note reversed parameter order:
         const auto _Err = __std_fs_create_hard_link(_New_hard_link.c_str(), _To.c_str());
@@ -3163,13 +3193,13 @@ namespace filesystem {
         }
     }
 
-    inline void create_hard_link(const path& _To, const path& _New_hard_link, error_code& _Ec) noexcept {
+    _EXPORT_STD inline void create_hard_link(const path& _To, const path& _New_hard_link, error_code& _Ec) noexcept {
         // create a hard link for a file, _New_hard_link -> _To
         // note reversed parameter order:
         _Ec = _Make_ec(__std_fs_create_hard_link(_New_hard_link.c_str(), _To.c_str()));
     }
 
-    inline void create_symlink(const path& _To, const path& _New_symlink) {
+    _EXPORT_STD inline void create_symlink(const path& _To, const path& _New_symlink) {
         // create a symlink for a file, _New_symlink -> _To
         const auto _Cleaned = _Get_cleaned_symlink_target(_To);
         if (!_Cleaned) {
@@ -3183,7 +3213,7 @@ namespace filesystem {
         }
     }
 
-    inline void create_symlink(const path& _To, const path& _New_symlink, error_code& _Ec) noexcept {
+    _EXPORT_STD inline void create_symlink(const path& _To, const path& _New_symlink, error_code& _Ec) noexcept {
         // create a symlink for a file, _New_symlink -> _To
         const auto _Cleaned = _Get_cleaned_symlink_target(_To);
         if (_Cleaned) {
@@ -3194,7 +3224,7 @@ namespace filesystem {
         }
     }
 
-    _NODISCARD inline __std_win_error _Read_symlink_reparse_data(
+    _NODISCARD inline __std_win_error _Read_reparse_data(
         const _Fs_file& _Handle, unique_ptr<char[]>& _Buffer_unique_ptr) noexcept {
         constexpr auto _Buffer_size = 16 * 1024 + sizeof(wchar_t); // MAXIMUM_REPARSE_DATA_BUFFER_SIZE + sizeof(wchar_t)
 
@@ -3212,7 +3242,7 @@ namespace filesystem {
         return __std_win_error::_Success;
     }
 
-    _NODISCARD inline __std_win_error _Read_symlink(const path& _Symlink_path, path& _Result) noexcept {
+    _NODISCARD inline __std_win_error _Read_symlink(const path& _Symlink_path, path& _Result) {
         __std_win_error _Err;
         unique_ptr<char[]> _Buffer_unique_ptr;
         {
@@ -3222,7 +3252,7 @@ namespace filesystem {
                 return _Err;
             }
 
-            _Err = _Read_symlink_reparse_data(_Handle, _Buffer_unique_ptr);
+            _Err = _Read_reparse_data(_Handle, _Buffer_unique_ptr);
             if (_Err != __std_win_error::_Success) {
                 return _Err;
             }
@@ -3236,20 +3266,19 @@ namespace filesystem {
             return _Err;
         }
 
-        _Result._Text.resize(_Length);
-        _CSTD memcpy(_Result._Text.data(), _Offset, _Length * sizeof(wchar_t));
+        _Result._Text.assign(_Offset, _Length);
 
         return __std_win_error::_Success;
     }
 
-    _NODISCARD inline path read_symlink(const path& _Symlink_path, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path read_symlink(const path& _Symlink_path, error_code& _Ec) {
         _Ec.clear();
         path _Result;
         _Ec = _Make_ec(_Read_symlink(_Symlink_path, _Result));
         return _Result;
     }
 
-    _NODISCARD inline path read_symlink(const path& _Symlink_path) {
+    _EXPORT_STD _NODISCARD inline path read_symlink(const path& _Symlink_path) {
         path _Result;
         const auto _Err = _Read_symlink(_Symlink_path, _Result);
         if (_Err != __std_win_error::_Success) {
@@ -3269,7 +3298,7 @@ namespace filesystem {
                 return _Err;
             }
 
-            _Err = _Read_symlink_reparse_data(_Handle, _Buffer_unique_ptr);
+            _Err = _Read_reparse_data(_Handle, _Buffer_unique_ptr);
             if (_Err != __std_win_error::_Success) {
                 return _Err;
             }
@@ -3284,6 +3313,14 @@ namespace filesystem {
         } // Close _Handle
 
         const auto _Buffer = reinterpret_cast<__std_fs_reparse_data_buffer*>(_Buffer_unique_ptr.get());
+
+        // LWG-3744: `copy_symlink(junction, new_symlink)`'s behavior is unclear
+        // `read_symlink(junction)` should be allowed, but `copy_symlink(junction)` is not.
+        if (__std_fs_is_junction_from_reparse_data_buffer(_Buffer)) {
+            _Err = __std_win_error::_Reparse_tag_invalid;
+            return _Err;
+        }
+
         unsigned short _Length;
         wchar_t* _Offset;
         _Err = __std_fs_read_name_from_reparse_data_buffer(_Buffer, &_Offset, &_Length);
@@ -3302,18 +3339,69 @@ namespace filesystem {
         return _Err;
     }
 
-    inline void copy_symlink(const path& _Symlink, const path& _New_symlink, error_code& _Ec) {
+    _NODISCARD inline __std_win_error _Copy_junction(const path& _Junction, const path& _New_junction) noexcept {
+        __std_win_error _Err;
+        unique_ptr<char[]> _Buffer_unique_ptr;
+        {
+            const _Fs_file _Handle(_Junction.c_str(), __std_access_rights::_File_read_attributes,
+                __std_fs_file_flags::_Backup_semantics | __std_fs_file_flags::_Open_reparse_point, &_Err);
+            if (_Err != __std_win_error::_Success) {
+                return _Err;
+            }
+
+            _Err = _Read_reparse_data(_Handle, _Buffer_unique_ptr);
+            if (_Err != __std_win_error::_Success) {
+                return _Err;
+            }
+        } // Close _Handle
+
+        const auto _Buffer = reinterpret_cast<__std_fs_reparse_data_buffer*>(_Buffer_unique_ptr.get());
+
+        const auto _Create_dir_res = __std_fs_create_directory(_New_junction.c_str());
+
+        if (_Create_dir_res._Error != __std_win_error::_Success) {
+            return _Create_dir_res._Error;
+        } else if (!_Create_dir_res._Created) {
+            return __std_win_error::_Already_exists;
+        }
+
+        struct _NODISCARD _Delete_directory_scope_guard {
+            const wchar_t* _Path;
+            ~_Delete_directory_scope_guard() {
+                if (_Path) {
+                    (void) __std_fs_remove(_Path);
+                }
+            }
+        };
+        _Delete_directory_scope_guard _Delete_directory{_New_junction.c_str()};
+
+        _Fs_file _To_handle{_New_junction.c_str(), __std_access_rights::_File_write_attributes,
+            __std_fs_file_flags::_Backup_semantics, &_Err};
+        if (_Err != __std_win_error::_Success) {
+            return _Err;
+        }
+        _Err = __std_fs_write_reparse_data_buffer(_To_handle._Raw, _Buffer);
+        if (_Err == __std_win_error::_Success) {
+            // don't delete the directory if we succeeded in making it a junction
+            _Delete_directory._Path = nullptr;
+        }
+
+        return _Err;
+    }
+
+    _EXPORT_STD inline void copy_symlink(const path& _Symlink, const path& _New_symlink, error_code& _Ec) {
         _Ec = _Make_ec(_Copy_symlink(_Symlink, _New_symlink));
     }
 
-    inline void copy_symlink(const path& _Symlink, const path& _New_symlink) {
+    _EXPORT_STD inline void copy_symlink(const path& _Symlink, const path& _New_symlink) {
         const auto _Err = _Copy_symlink(_Symlink, _New_symlink);
         if (_Err != __std_win_error::_Success) {
             _Throw_fs_error("copy_symlink", _Err, _Symlink, _New_symlink);
         }
     }
 
-    inline bool copy_file(const path& _From, const path& _To, const copy_options _Options, error_code& _Ec) noexcept
+    _EXPORT_STD inline bool copy_file(
+        const path& _From, const path& _To, const copy_options _Options, error_code& _Ec) noexcept
     /* strengthened */ {
         // copy a file _From -> _To according to _Options
         const auto _Result =
@@ -3322,7 +3410,7 @@ namespace filesystem {
         return _Result._Copied;
     }
 
-    inline bool copy_file(const path& _From, const path& _To, const copy_options _Options) {
+    _EXPORT_STD inline bool copy_file(const path& _From, const path& _To, const copy_options _Options) {
         // copy a file _From -> _To according to _Options
         const auto _Result =
             __std_fs_copy_file(_From.c_str(), _To.c_str(), static_cast<__std_fs_copy_options>(_Options));
@@ -3333,12 +3421,12 @@ namespace filesystem {
         return _Result._Copied;
     }
 
-    inline bool copy_file(const path& _From, const path& _To, error_code& _Ec) noexcept /* strengthened */ {
+    _EXPORT_STD inline bool copy_file(const path& _From, const path& _To, error_code& _Ec) noexcept /* strengthened */ {
         // copy a file _From -> _To, failing if the destination exists
         return _STD filesystem::copy_file(_From, _To, copy_options::none, _Ec);
     }
 
-    inline bool copy_file(const path& _From, const path& _To) {
+    _EXPORT_STD inline bool copy_file(const path& _From, const path& _To) {
         // copy a file _From -> _To, failing if the destination exists
         return _STD filesystem::copy_file(_From, _To, copy_options::none);
     }
@@ -3360,7 +3448,7 @@ namespace filesystem {
         return {__std_win_error::_Success, _CSTD memcmp(&_Left_id, &_Right_id, sizeof(__std_fs_file_id)) == 0};
     }
 
-    _NODISCARD inline bool equivalent(const path& _Lhs, const path& _Rhs) {
+    _EXPORT_STD _NODISCARD inline bool equivalent(const path& _Lhs, const path& _Rhs) {
         // test if the paths _Lhs and _Rhs refer to the same file
         const auto _Result = _Equivalent(_Lhs.c_str(), _Rhs.c_str());
         if (_Result.first != __std_win_error::_Success) {
@@ -3370,19 +3458,19 @@ namespace filesystem {
         return _Result.second;
     }
 
-    _NODISCARD inline bool equivalent(const path& _Lhs, const path& _Rhs, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool equivalent(const path& _Lhs, const path& _Rhs, error_code& _Ec) noexcept {
         // test if the paths _Lhs and _Rhs refer to the same file
         const auto _Result = _Equivalent(_Lhs.c_str(), _Rhs.c_str());
         _Ec                = _Make_ec(_Result.first);
         return _Result.second;
     }
 
-    _NODISCARD inline file_status status(const path& _Path);
-    _NODISCARD inline file_status status(const path& _Path, error_code& _Ec) noexcept;
-    _NODISCARD inline file_status symlink_status(const path& _Path);
-    _NODISCARD inline file_status symlink_status(const path& _Path, error_code& _Ec) noexcept;
+    _EXPORT_STD _NODISCARD inline file_status status(const path& _Path);
+    _EXPORT_STD _NODISCARD inline file_status status(const path& _Path, error_code& _Ec) noexcept;
+    _EXPORT_STD _NODISCARD inline file_status symlink_status(const path& _Path);
+    _EXPORT_STD _NODISCARD inline file_status symlink_status(const path& _Path, error_code& _Ec) noexcept;
 
-    _NODISCARD inline bool exists(const path& _Target, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool exists(const path& _Target, error_code& _Ec) noexcept {
         const auto _Type = _STD filesystem::status(_Target, _Ec).type();
         if (_Type != file_type::none) {
             _Ec.clear();
@@ -3392,7 +3480,7 @@ namespace filesystem {
         return false;
     }
 
-    _NODISCARD inline bool exists(const path& _Target) {
+    _EXPORT_STD _NODISCARD inline bool exists(const path& _Target) {
         error_code _Ec;
         const bool _Result = _STD filesystem::exists(_Target, _Ec);
         if (_Ec) {
@@ -3415,7 +3503,7 @@ namespace filesystem {
         return _Error;
     }
 
-    _NODISCARD inline uintmax_t file_size(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline uintmax_t file_size(const path& _Path) {
         uintmax_t _Result;
         const auto _Error = _File_size(_Path, _Result);
         if (_Error != __std_win_error::_Success) {
@@ -3425,7 +3513,7 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline uintmax_t file_size(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline uintmax_t file_size(const path& _Path, error_code& _Ec) noexcept {
         uintmax_t _Result;
         _Ec = _Make_ec(_File_size(_Path, _Result));
         return _Result;
@@ -3444,7 +3532,7 @@ namespace filesystem {
         return _Error;
     }
 
-    _NODISCARD inline uintmax_t hard_link_count(const path& _Target) {
+    _EXPORT_STD _NODISCARD inline uintmax_t hard_link_count(const path& _Target) {
         // get the number of hard links to _Target
         uintmax_t _Result;
         const auto _Err = _Hard_link_count(_Target.c_str(), _Result);
@@ -3455,46 +3543,46 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline uintmax_t hard_link_count(const path& _Target, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline uintmax_t hard_link_count(const path& _Target, error_code& _Ec) noexcept {
         // get the number of hard links to _Target
         uintmax_t _Result;
         _Ec = _Make_ec(_Hard_link_count(_Target.c_str(), _Result));
         return _Result;
     }
 
-    _NODISCARD inline bool is_block_file(const path&) noexcept /* strengthened */ {
+    _EXPORT_STD _NODISCARD inline bool is_block_file(const path&) noexcept /* strengthened */ {
         // tests whether the input path is a block special file (never on Windows)
         return false;
     }
 
-    _NODISCARD inline bool is_block_file(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_block_file(const path& _Path, error_code& _Ec) noexcept {
         // tests whether the input path is a block special file (never on Windows)
         (void) _STD filesystem::status(_Path, _Ec);
         return false; // note status sets _Ec to an error on nonexistent input
     }
 
-    _NODISCARD inline bool is_character_file(const path&) noexcept /* strengthened */ {
+    _EXPORT_STD _NODISCARD inline bool is_character_file(const path&) noexcept /* strengthened */ {
         // tests whether the input path is a character special file (never on Windows)
         return false;
     }
 
-    _NODISCARD inline bool is_character_file(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_character_file(const path& _Path, error_code& _Ec) noexcept {
         // tests whether the input path is a character special file (never on Windows)
         (void) _STD filesystem::status(_Path, _Ec);
         return false; // note status sets _Ec to an error on nonexistent input
     }
 
-    _NODISCARD inline bool is_directory(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline bool is_directory(const path& _Path) {
         // tests whether _Path is a directory
         return _STD filesystem::is_directory(_STD filesystem::status(_Path));
     }
 
-    _NODISCARD inline bool is_directory(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_directory(const path& _Path, error_code& _Ec) noexcept {
         // tests whether _Path is a directory
         return _STD filesystem::is_directory(_STD filesystem::status(_Path, _Ec));
     }
 
-    _NODISCARD inline bool is_empty(const path& _Path, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline bool is_empty(const path& _Path, error_code& _Ec) {
         // test whether _Path refers to a zero sized file or empty directory
         constexpr auto _Flags = __std_fs_stats_flags::_Attributes | __std_fs_stats_flags::_File_size
                               | __std_fs_stats_flags::_Follow_symlinks;
@@ -3513,7 +3601,7 @@ namespace filesystem {
         }
     }
 
-    _NODISCARD inline bool is_empty(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline bool is_empty(const path& _Path) {
         // test whether _Path refers to a zero sized file or empty directory
         error_code _Ec;
         const bool _Result = is_empty(_Path, _Ec);
@@ -3524,59 +3612,59 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline bool is_fifo(const path&) noexcept /* strengthened */ {
+    _EXPORT_STD _NODISCARD inline bool is_fifo(const path&) noexcept /* strengthened */ {
         // tests whether the input path is a fifo (never on Windows)
         return false;
     }
 
-    _NODISCARD inline bool is_fifo(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_fifo(const path& _Path, error_code& _Ec) noexcept {
         // tests whether the input path is a fifo (never on Windows)
         (void) _STD filesystem::status(_Path, _Ec);
         return false; // note status sets _Ec to an error on nonexistent input
     }
 
-    _NODISCARD inline bool is_other(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline bool is_other(const path& _Path) {
         // tests whether _Path is an "other" file (such as a junction)
         return _STD filesystem::is_other(_STD filesystem::status(_Path));
     }
 
-    _NODISCARD inline bool is_other(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_other(const path& _Path, error_code& _Ec) noexcept {
         // tests whether _Path is an "other" file (such as a junction)
         return _STD filesystem::is_other(_STD filesystem::status(_Path, _Ec));
     }
 
-    _NODISCARD inline bool is_regular_file(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline bool is_regular_file(const path& _Path) {
         // tests whether _Path is a regular file
         return _STD filesystem::is_regular_file(_STD filesystem::status(_Path));
     }
 
-    _NODISCARD inline bool is_regular_file(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_regular_file(const path& _Path, error_code& _Ec) noexcept {
         // tests whether _Path is a regular file
         return _STD filesystem::is_regular_file(_STD filesystem::status(_Path, _Ec));
     }
 
-    _NODISCARD inline bool is_socket(const path&) noexcept /* strengthened */ {
+    _EXPORT_STD _NODISCARD inline bool is_socket(const path&) noexcept /* strengthened */ {
         // tests whether the input path is a socket (never on Windows)
         return false;
     }
 
-    _NODISCARD inline bool is_socket(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_socket(const path& _Path, error_code& _Ec) noexcept {
         // tests whether the input path is a socket (never on Windows)
         (void) _STD filesystem::status(_Path, _Ec);
         return false; // note status sets _Ec to an error on nonexistent input
     }
 
-    _NODISCARD inline bool is_symlink(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline bool is_symlink(const path& _Path) {
         // tests whether _Path is a symlink
         return _STD filesystem::is_symlink(_STD filesystem::symlink_status(_Path));
     }
 
-    _NODISCARD inline bool is_symlink(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline bool is_symlink(const path& _Path, error_code& _Ec) noexcept {
         // tests whether _Path is a symlink
         return _STD filesystem::is_symlink(_STD filesystem::symlink_status(_Path, _Ec));
     }
 
-    inline bool remove(const path& _Target) {
+    _EXPORT_STD inline bool remove(const path& _Target) {
         // remove file _Target (even if it is a directory); returns whether the file was removed
         // note !exists(_Target) is not an error, and merely returns false
         const auto _Result = __std_fs_remove(_Target.c_str());
@@ -3587,7 +3675,7 @@ namespace filesystem {
         return _Result._Removed;
     }
 
-    inline bool remove(const path& _Target, error_code& _Ec) noexcept {
+    _EXPORT_STD inline bool remove(const path& _Target, error_code& _Ec) noexcept {
         // remove file _Target (even if it is a directory); returns whether the file was removed
         // note !exists(_Target) is not an error, and merely returns false
         const auto _Result = __std_fs_remove(_Target.c_str());
@@ -3595,7 +3683,7 @@ namespace filesystem {
         return _Result._Removed;
     }
 
-    inline void rename(const path& _Old_p, const path& _New_p) {
+    _EXPORT_STD inline void rename(const path& _Old_p, const path& _New_p) {
         // rename _Old_p to _New_p, overwriting _New_p if it is an existing non-directory file
         // the standard explicitly allows an implementation to not replace _New_p if it is a directory,
         // and we take advantage of that here to be able to use MoveFileEx(... MOVEFILE_REPLACE_EXISTING)
@@ -3605,14 +3693,14 @@ namespace filesystem {
         }
     }
 
-    inline void rename(const path& _Old_p, const path& _New_p, error_code& _Ec) noexcept {
+    _EXPORT_STD inline void rename(const path& _Old_p, const path& _New_p, error_code& _Ec) noexcept {
         // rename _Old_p to _New_p, overwriting _New_p if it is an existing non-directory file
         // the standard explicitly allows an implementation to not replace _New_p if it is a directory,
         // and we take advantage of that here to be able to use MoveFileEx(... MOVEFILE_REPLACE_EXISTING)
         _Ec = _Make_ec(__std_fs_rename(_Old_p.c_str(), _New_p.c_str()));
     }
 
-    inline void resize_file(const path& _Target, const uintmax_t _New_size) {
+    _EXPORT_STD inline void resize_file(const path& _Target, const uintmax_t _New_size) {
         // set the size of _Target to _New_size
         const auto _Err = __std_fs_resize_file(_Target.c_str(), _New_size);
         if (_Err != __std_win_error::_Success) {
@@ -3620,12 +3708,12 @@ namespace filesystem {
         }
     }
 
-    inline void resize_file(const path& _Target, const uintmax_t _New_size, error_code& _Ec) noexcept {
+    _EXPORT_STD inline void resize_file(const path& _Target, const uintmax_t _New_size, error_code& _Ec) noexcept {
         // set the size of _Target to _New_size
         _Ec = _Make_ec(__std_fs_resize_file(_Target.c_str(), _New_size));
     }
 
-    struct space_info {
+    _EXPORT_STD struct space_info {
         uintmax_t capacity;
         uintmax_t free;
         uintmax_t available;
@@ -3635,7 +3723,7 @@ namespace filesystem {
 #endif // _HAS_CXX20
     };
 
-    _NODISCARD inline space_info space(const path& _Target) {
+    _EXPORT_STD _NODISCARD inline space_info space(const path& _Target) {
         // get capacity information for the volume on which the file _Target resides
         space_info _Result;
         const auto _Last_error = __std_fs_space(_Target.c_str(), &_Result.available, &_Result.capacity, &_Result.free);
@@ -3646,14 +3734,14 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline space_info space(const path& _Target, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline space_info space(const path& _Target, error_code& _Ec) noexcept {
         // get capacity information for the volume on which the file _Target resides
         space_info _Result;
         _Ec = _Make_ec(__std_fs_space(_Target.c_str(), &_Result.available, &_Result.capacity, &_Result.free));
         return _Result;
     }
 
-    _NODISCARD inline bool status_known(const file_status _Status) noexcept {
+    _EXPORT_STD _NODISCARD inline bool status_known(const file_status _Status) noexcept {
         return _Status.type() != file_type::none;
     }
 
@@ -3669,13 +3757,13 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline file_status status(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline file_status status(const path& _Path, error_code& _Ec) noexcept {
         const auto _Result = _Get_any_status(_Path, _Status_stats_flags);
         _Ec                = _Make_ec(_Result._Error);
         return _Result._Status;
     }
 
-    _NODISCARD inline file_status status(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline file_status status(const path& _Path) {
         const auto _Result = _Get_any_status(_Path, _Status_stats_flags);
         if (_Result._Not_good()) {
             _Throw_fs_error("status", _Result._Error, _Path);
@@ -3683,13 +3771,13 @@ namespace filesystem {
         return _Result._Status;
     }
 
-    _NODISCARD inline file_status symlink_status(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline file_status symlink_status(const path& _Path, error_code& _Ec) noexcept {
         const auto _Result = _Get_any_status(_Path, _Symlink_status_stats_flags);
         _Ec                = _Make_ec(_Result._Error);
         return _Result._Status;
     }
 
-    _NODISCARD inline file_status symlink_status(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline file_status symlink_status(const path& _Path) {
         const auto _Result = _Get_any_status(_Path, _Symlink_status_stats_flags);
         if (_Result._Not_good()) {
             _Throw_fs_error("symlink_status", _Result._Error, _Path);
@@ -3698,7 +3786,7 @@ namespace filesystem {
         return _Result._Status;
     }
 
-    inline bool create_directory(const path& _Path) {
+    _EXPORT_STD inline bool create_directory(const path& _Path) {
         const auto _Result = __std_fs_create_directory(_Path.c_str());
         if (_Result._Error != __std_win_error::_Success) {
             _Throw_fs_error("create_directory", _Result._Error, _Path);
@@ -3707,13 +3795,13 @@ namespace filesystem {
         return _Result._Created;
     }
 
-    inline bool create_directory(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD inline bool create_directory(const path& _Path, error_code& _Ec) noexcept {
         const auto _Result = __std_fs_create_directory(_Path.c_str());
         _Ec                = _Make_ec(_Result._Error);
         return _Result._Created;
     }
 
-    inline bool create_directory(const path& _Path, const path& _Existing_p) {
+    _EXPORT_STD inline bool create_directory(const path& _Path, const path& _Existing_p) {
         const auto _Result = __std_fs_create_directory(_Path.c_str());
         if (_Result._Error != __std_win_error::_Success) {
             _Throw_fs_error("create_directory", _Result._Error, _Path, _Existing_p);
@@ -3722,13 +3810,13 @@ namespace filesystem {
         return _Result._Created;
     }
 
-    inline bool create_directory(const path& _Path, const path&, error_code& _Ec) noexcept {
+    _EXPORT_STD inline bool create_directory(const path& _Path, const path&, error_code& _Ec) noexcept {
         const auto _Result = __std_fs_create_directory(_Path.c_str());
         _Ec                = _Make_ec(_Result._Error);
         return _Result._Created;
     }
 
-    inline bool create_directories(const path& _Path, error_code& _Ec) {
+    _EXPORT_STD inline bool create_directories(const path& _Path, error_code& _Ec) {
         if (_Path.empty()) {
             _Ec = _Make_ec(__std_win_error::_Path_not_found);
             return false;
@@ -3787,7 +3875,7 @@ namespace filesystem {
         return _Created_last;
     }
 
-    inline bool create_directories(const path& _Path) {
+    _EXPORT_STD inline bool create_directories(const path& _Path) {
         error_code _Ec;
         const bool _Result = _STD filesystem::create_directories(_Path, _Ec);
         if (_Ec) {
@@ -3847,7 +3935,7 @@ namespace filesystem {
         }
     }
 
-    inline uintmax_t remove_all(const path& _Path, error_code& _Ec) {
+    _EXPORT_STD inline uintmax_t remove_all(const path& _Path, error_code& _Ec) {
         // remove _Path, including any contents
         _Ec.clear(); // for exception safety
         const auto _First_remove_result = __std_fs_remove(_Path.c_str());
@@ -3864,7 +3952,7 @@ namespace filesystem {
         return _Removed_count;
     }
 
-    inline uintmax_t remove_all(const path& _Path) {
+    _EXPORT_STD inline uintmax_t remove_all(const path& _Path) {
         error_code _Ec;
         const auto _Removed_count = _STD filesystem::remove_all(_Path, _Ec);
         if (_Ec) {
@@ -3887,7 +3975,7 @@ namespace filesystem {
         return _Error;
     }
 
-    _NODISCARD inline file_time_type last_write_time(const path& _Path) {
+    _EXPORT_STD _NODISCARD inline file_time_type last_write_time(const path& _Path) {
         file_time_type _Result;
         const auto _Error = _Last_write_time(_Path, _Result);
         if (_Error != __std_win_error::_Success) {
@@ -3897,13 +3985,13 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline file_time_type last_write_time(const path& _Path, error_code& _Ec) noexcept {
+    _EXPORT_STD _NODISCARD inline file_time_type last_write_time(const path& _Path, error_code& _Ec) noexcept {
         file_time_type _Result;
         _Ec = _Make_ec(_Last_write_time(_Path, _Result));
         return _Result;
     }
 
-    inline void last_write_time(const path& _Target, const file_time_type _New_time) {
+    _EXPORT_STD inline void last_write_time(const path& _Target, const file_time_type _New_time) {
         // set the last write time of _Target to _New_time
         const auto _Err = __std_fs_set_last_write_time(_New_time.time_since_epoch().count(), _Target.c_str());
         if (_Err != __std_win_error::_Success) {
@@ -3911,14 +3999,15 @@ namespace filesystem {
         }
     }
 
-    inline void last_write_time(const path& _Target, const file_time_type _New_time, error_code& _Ec) noexcept {
+    _EXPORT_STD inline void last_write_time(
+        const path& _Target, const file_time_type _New_time, error_code& _Ec) noexcept {
         // set the last write time of _Target to _New_time
         _Ec = _Make_ec(__std_fs_set_last_write_time(_New_time.time_since_epoch().count(), _Target.c_str()));
     }
 
-    enum class perm_options { replace = 0x1, add = 0x2, remove = 0x4, nofollow = 0x8 };
+    _EXPORT_STD enum class perm_options { replace = 0x1, add = 0x2, remove = 0x4, nofollow = 0x8 };
 
-    _BITMASK_OPS(perm_options)
+    _BITMASK_OPS(_EXPORT_STD, perm_options)
 
     _NODISCARD inline __std_win_error _Permissions(
         const path& _Target, const perms _Perms, perm_options _Options) noexcept {
@@ -3957,7 +4046,7 @@ namespace filesystem {
         return __std_fs_change_permissions(_Target.c_str(), _Follow_symlinks, _Readonly);
     }
 
-    inline void permissions(
+    _EXPORT_STD inline void permissions(
         const path& _Target, const perms _Perms, const perm_options _Options = perm_options::replace) {
         const auto _Err = _Permissions(_Target, _Perms, _Options);
         if (_Err != __std_win_error::_Success) {
@@ -3965,16 +4054,16 @@ namespace filesystem {
         }
     }
 
-    inline void permissions(
+    _EXPORT_STD inline void permissions(
         const path& _Target, const perms _Perms, const perm_options _Options, error_code& _Ec) noexcept {
         _Ec = _Make_ec(_Permissions(_Target, _Perms, _Options));
     }
 
-    inline void permissions(const path& _Target, const perms _Perms, error_code& _Ec) noexcept {
+    _EXPORT_STD inline void permissions(const path& _Target, const perms _Perms, error_code& _Ec) noexcept {
         _STD filesystem::permissions(_Target, _Perms, perm_options::replace, _Ec);
     }
 
-    _NODISCARD inline path temp_directory_path(error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path temp_directory_path(error_code& _Ec) {
         // get a location suitable for temporary storage, and verify that it is a directory
         _Ec.clear(); // for exception safety
         path _Result;
@@ -3990,7 +4079,7 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline path temp_directory_path() {
+    _EXPORT_STD _NODISCARD inline path temp_directory_path() {
         // get a location suitable for temporary storage, and verify that it is a directory
         error_code _Ec; // unusual arrangement to allow thrown error_code to have generic_category()
         path _Result(_STD filesystem::temp_directory_path(_Ec));
@@ -4000,46 +4089,42 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline __std_win_error _Current_path(path& _Result) noexcept {
+    _EXPORT_STD _NODISCARD inline path current_path(error_code& _Ec) {
+        _Ec.clear(); // for exception safety
+        path _Result;
         _Result._Text.resize(__std_fs_max_path);
         for (;;) {
             const auto _Requested_size = static_cast<unsigned long>(_Result._Text.size());
             const auto _Temp_result    = __std_fs_get_current_path(_Requested_size, _Result._Text.data());
             _Result._Text.resize(_Temp_result._Size);
             if (_Temp_result._Size < _Requested_size) {
-                return _Temp_result._Error;
+                _Ec = _Make_ec(_Temp_result._Error);
+                return _Result;
             }
         }
     }
 
-    _NODISCARD inline path current_path(error_code& _Ec) {
-        _Ec.clear();
-        path _Result;
-        _Ec = _Make_ec(_Current_path(_Result));
-        return _Result;
-    }
-
-    _NODISCARD inline path current_path() {
-        path _Result;
-        const auto _Err = _Current_path(_Result);
-        if (_Err != __std_win_error::_Success) {
-            _Throw_fs_error("current_path()", _Err);
+    _EXPORT_STD _NODISCARD inline path current_path() {
+        error_code _Ec;
+        path _Result(_STD filesystem::current_path(_Ec));
+        if (_Ec) {
+            _Throw_fs_error("current_path()", _Ec);
         }
         return _Result;
     }
 
-    inline void current_path(const path& _To, error_code& _Ec) noexcept { // set the current path
+    _EXPORT_STD inline void current_path(const path& _To, error_code& _Ec) noexcept { // set the current path
         _Ec = _Make_ec(__std_fs_set_current_path(_To._Text.data()));
     }
 
-    inline void current_path(const path& _To) { // set the current path
+    _EXPORT_STD inline void current_path(const path& _To) { // set the current path
         const auto _Err = __std_fs_set_current_path(_To._Text.data());
         if (_Err != __std_win_error::_Success) {
             _Throw_fs_error("current_path(const path&)", _Err, _To);
         }
     }
 
-    _NODISCARD inline path weakly_canonical(const path& _Input, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path weakly_canonical(const path& _Input, error_code& _Ec) {
         // eventually calls GetFinalPathNameByHandleW
         _Ec.clear(); // for exception safety
 
@@ -4088,7 +4173,7 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline path weakly_canonical(const path& _Input) {
+    _EXPORT_STD _NODISCARD inline path weakly_canonical(const path& _Input) {
         // eventually calls GetFinalPathNameByHandleW
         error_code _Ec;
 
@@ -4101,14 +4186,15 @@ namespace filesystem {
         return _Result;
     }
 
-    _NODISCARD inline path proximate(const path& _Path, const path& _Base = _STD filesystem::current_path()) {
+    _EXPORT_STD _NODISCARD inline path proximate(
+        const path& _Path, const path& _Base = _STD filesystem::current_path()) {
         // eventually calls GetFinalPathNameByHandleW
         const path _Weakly_canonical_path = _STD filesystem::weakly_canonical(_Path);
         const path _Weakly_canonical_base = _STD filesystem::weakly_canonical(_Base);
         return _Weakly_canonical_path.lexically_proximate(_Weakly_canonical_base);
     }
 
-    _NODISCARD inline path proximate(const path& _Path, const path& _Base, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path proximate(const path& _Path, const path& _Base, error_code& _Ec) {
         // eventually calls GetFinalPathNameByHandleW
         const path _Weakly_canonical_path = _STD filesystem::weakly_canonical(_Path, _Ec);
 
@@ -4125,10 +4211,10 @@ namespace filesystem {
         return _Weakly_canonical_path.lexically_proximate(_Weakly_canonical_base);
     }
 
-    _NODISCARD inline path proximate(const path& _Path, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path proximate(const path& _Path, error_code& _Ec) {
         // eventually calls GetFinalPathNameByHandleW
         const path _Base = _STD filesystem::current_path(_Ec);
-        // N4810 29.11.14.27 [fs.op.proximate]/1 incorrectly calls current_path()
+        // N4950 [fs.op.proximate]/1 incorrectly calls current_path()
         if (_Ec) {
             return {};
         }
@@ -4136,14 +4222,15 @@ namespace filesystem {
         return _STD filesystem::proximate(_Path, _Base, _Ec);
     }
 
-    _NODISCARD inline path relative(const path& _Path, const path& _Base = _STD filesystem::current_path()) {
+    _EXPORT_STD _NODISCARD inline path relative(
+        const path& _Path, const path& _Base = _STD filesystem::current_path()) {
         // eventually calls GetFinalPathNameByHandleW
         const path _Weakly_canonical_path = _STD filesystem::weakly_canonical(_Path);
         const path _Weakly_canonical_base = _STD filesystem::weakly_canonical(_Base);
         return _Weakly_canonical_path.lexically_relative(_Weakly_canonical_base);
     }
 
-    _NODISCARD inline path relative(const path& _Path, const path& _Base, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path relative(const path& _Path, const path& _Base, error_code& _Ec) {
         // eventually calls GetFinalPathNameByHandleW
         const path _Weakly_canonical_path = _STD filesystem::weakly_canonical(_Path, _Ec);
 
@@ -4160,10 +4247,10 @@ namespace filesystem {
         return _Weakly_canonical_path.lexically_relative(_Weakly_canonical_base);
     }
 
-    _NODISCARD inline path relative(const path& _Path, error_code& _Ec) {
+    _EXPORT_STD _NODISCARD inline path relative(const path& _Path, error_code& _Ec) {
         // eventually calls GetFinalPathNameByHandleW
         const path _Base = _STD filesystem::current_path(_Ec);
-        // N4810 29.11.14.29 [fs.op.relative]/1 incorrectly calls current_path()
+        // N4950 [fs.op.relative]/1 incorrectly calls current_path()
         if (_Ec) {
             return {};
         }
@@ -4174,7 +4261,7 @@ namespace filesystem {
     inline void _Copy_impl(
         const directory_entry& _From, const path& _To, const copy_options _Options, error_code& _Ec) {
         // implement copy, does not clear _Ec for callers
-        // Standard quotes herein are relative to N4810
+        // Standard quotes herein are relative to N4950
         // The following parts of LWG-3057 are implemented:
         // * guarding equivalent() from nonexistent to
         // * replacing unspecified recursion prevention tag with copy_options::directories_only
@@ -4207,8 +4294,12 @@ namespace filesystem {
             }
         }
 
-        if (_STD filesystem::is_other(_Fstat._Status) || _STD filesystem::is_other(_Tstat._Status)) {
-            // report an error if is_other(f) || is_other(t) is true
+        const bool _Fstat_is_other =
+            _STD filesystem::is_other(_Fstat._Status) && _Fstat._Status.type() != file_type::junction;
+        const bool _Tstat_is_other =
+            _STD filesystem::is_other(_Tstat._Status) && _Tstat._Status.type() != file_type::junction;
+        if (_Fstat_is_other || _Tstat_is_other) {
+            // report an error if is_other(f) || is_other(t) is true, and it's not a junction
             _Ec = _STD make_error_code(errc::operation_not_supported);
             return;
         }
@@ -4219,14 +4310,26 @@ namespace filesystem {
             return;
         }
 
+        if (_Fstat._Status.type() == file_type::junction) {
+            if ((_Options & copy_options::skip_symlinks) != copy_options::none) {
+                return;
+            }
+
+            // _Options includes copy_options::copy_symlinks,
+            // since _Fstat is only allowed to be a symbolic link when either skip_symlinks or copy_symlinks
+            if (!_STD filesystem::exists(_Tstat._Status)) {
+                _Ec = _Make_ec(_Copy_junction(_From, _To));
+            }
+        }
+
         if (_STD filesystem::is_symlink(_Fstat._Status)) {
             if ((_Options & copy_options::skip_symlinks) != copy_options::none) {
                 return;
             }
 
-            if (!_STD filesystem::exists(_Tstat._Status)
-                && (_Options & copy_options::copy_symlinks) != copy_options::none) {
-                // if (condition) then copy_symlink(from, to)
+            // _Options includes copy_options::copy_symlinks,
+            // since _Fstat is only allowed to be a symbolic link when either skip_symlinks or copy_symlinks
+            if (!_STD filesystem::exists(_Tstat._Status)) {
                 _STD filesystem::copy_symlink(_From, _To, _Ec);
                 return;
             }
@@ -4312,7 +4415,7 @@ namespace filesystem {
         // Otherwise, no effects.
     }
 
-    inline void copy(const path& _From, const path& _To, const copy_options _Options, error_code& _Ec) {
+    _EXPORT_STD inline void copy(const path& _From, const path& _To, const copy_options _Options, error_code& _Ec) {
         const directory_entry _From_dir(_From, _Ec);
         if (_Ec) { // report an error if exists(f) is false
             return;
@@ -4321,7 +4424,7 @@ namespace filesystem {
         _Copy_impl(_From_dir, _To, _Options, _Ec);
     }
 
-    inline void copy(const path& _From, const path& _To, const copy_options _Options) {
+    _EXPORT_STD inline void copy(const path& _From, const path& _To, const copy_options _Options) {
         error_code _Ec;
         _STD filesystem::copy(_From, _To, _Options, _Ec);
         if (_Ec) {
@@ -4329,25 +4432,25 @@ namespace filesystem {
         }
     }
 
-    inline void copy(const path& _From, const path& _To, error_code& _Ec) {
+    _EXPORT_STD inline void copy(const path& _From, const path& _To, error_code& _Ec) {
         return _STD filesystem::copy(_From, _To, copy_options::none, _Ec);
     }
 
-    inline void copy(const path& _From, const path& _To) {
+    _EXPORT_STD inline void copy(const path& _From, const path& _To) {
         return _STD filesystem::copy(_From, _To, copy_options::none);
     }
 } // namespace filesystem
 
 template <>
 struct hash<filesystem::path> {
-    _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS typedef filesystem::path _ARGUMENT_TYPE_NAME;
-    _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS typedef size_t _RESULT_TYPE_NAME;
-    _NODISCARD size_t operator()(const filesystem::path& _Path) const noexcept {
+    using _ARGUMENT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS = filesystem::path;
+    using _RESULT_TYPE_NAME _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS   = size_t;
+    _NODISCARD _STATIC_CALL_OPERATOR size_t operator()(const filesystem::path& _Path) _CONST_CALL_OPERATOR noexcept {
         return _STD filesystem::hash_value(_Path);
     }
 };
 
-#ifdef __cpp_lib_concepts
+#if _HAS_CXX20
 namespace ranges {
     template <>
     inline constexpr bool enable_borrowed_range<filesystem::directory_iterator> = true;
@@ -4358,7 +4461,7 @@ namespace ranges {
     template <>
     inline constexpr bool enable_view<filesystem::recursive_directory_iterator> = true;
 } // namespace ranges
-#endif // __cpp_lib_concepts
+#endif // _HAS_CXX20
 
 _STD_END
 
@@ -4366,6 +4469,6 @@ _STD_END
 _STL_RESTORE_CLANG_WARNINGS
 #pragma warning(pop)
 #pragma pack(pop)
-#endif // _HAS_CXX17
+#endif // ^^^ _HAS_CXX17 ^^^
 #endif // _STL_COMPILER_PREPROCESSOR
 #endif // _FILESYSTEM_

@@ -1,13 +1,21 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+#if defined(TEST_CMPXCHG16B) && (defined(__clang__) || !defined(_M_X64))
+// Skip Clang because it would require the -mcx16 compiler option.
+// Skip non-x64 because _STD_ATOMIC_ALWAYS_USE_CMPXCHG16B is always 1 for ARM64, and is forbidden to be 1 for 32-bit.
+int main() {}
+#else // ^^^ skip test / run test vvv
+
 #include <atomic>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <execution>
 #include <functional>
+#include <memory>
 #include <numeric>
+#include <type_traits>
 #include <vector>
 
 struct bigint {
@@ -32,6 +40,51 @@ struct int128 {
     }
 };
 
+// Also test GH-4688 "<atomic>: atomic_ref<void*> and atomic<void*> lack difference_type"
+template <class T>
+constexpr bool atomic_ref_has_member_difference_type = requires { typename std::atomic_ref<T>::difference_type; };
+
+static_assert(std::is_same_v<std::atomic_ref<signed char>::difference_type, signed char>);
+static_assert(std::is_same_v<std::atomic_ref<short>::difference_type, short>);
+static_assert(std::is_same_v<std::atomic_ref<int>::difference_type, int>);
+static_assert(std::is_same_v<std::atomic_ref<long>::difference_type, long>);
+static_assert(std::is_same_v<std::atomic_ref<long long>::difference_type, long long>);
+static_assert(std::is_same_v<std::atomic_ref<unsigned char>::difference_type, unsigned char>);
+static_assert(std::is_same_v<std::atomic_ref<unsigned short>::difference_type, unsigned short>);
+static_assert(std::is_same_v<std::atomic_ref<unsigned int>::difference_type, unsigned int>);
+static_assert(std::is_same_v<std::atomic_ref<unsigned long>::difference_type, unsigned long>);
+static_assert(std::is_same_v<std::atomic_ref<unsigned long long>::difference_type, unsigned long long>);
+static_assert(std::is_same_v<std::atomic_ref<char>::difference_type, char>);
+#ifdef __cpp_char8_t
+static_assert(std::is_same_v<std::atomic_ref<char8_t>::difference_type, char8_t>);
+#endif // defined(__cpp_char8_t)
+static_assert(std::is_same_v<std::atomic_ref<char16_t>::difference_type, char16_t>);
+static_assert(std::is_same_v<std::atomic_ref<char32_t>::difference_type, char32_t>);
+static_assert(std::is_same_v<std::atomic_ref<wchar_t>::difference_type, wchar_t>);
+
+static_assert(std::is_same_v<std::atomic_ref<float>::difference_type, float>);
+static_assert(std::is_same_v<std::atomic_ref<double>::difference_type, double>);
+static_assert(std::is_same_v<std::atomic_ref<long double>::difference_type, long double>);
+
+static_assert(std::is_same_v<std::atomic_ref<int*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<bool*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<const int*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<volatile bool*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<bigint*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<const volatile int128*>::difference_type, std::ptrdiff_t>);
+
+static_assert(std::is_same_v<std::atomic_ref<void*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<const void*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<volatile void*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<const volatile void*>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<void (*)()>::difference_type, std::ptrdiff_t>);
+static_assert(std::is_same_v<std::atomic_ref<bigint (*)(int128)>::difference_type, std::ptrdiff_t>);
+
+static_assert(!atomic_ref_has_member_difference_type<bool>);
+static_assert(!atomic_ref_has_member_difference_type<std::nullptr_t>);
+static_assert(!atomic_ref_has_member_difference_type<bigint>);
+static_assert(!atomic_ref_has_member_difference_type<int128>);
+
 
 // code reuse of ../P1135R6_atomic_flag_test/test.cpp
 
@@ -44,7 +97,8 @@ void test_ops() {
 
     struct alignas(std::atomic_ref<ValueType>::required_alignment) Padded {
         ValueType vals[unique] = {};
-    } padded;
+    };
+    Padded padded;
 
     auto& vals = padded.vals;
 
@@ -61,7 +115,7 @@ void test_ops() {
     auto load  = [](const std::atomic_ref<ValueType>& ref) { return static_cast<int>(ref.load()); };
     auto xchg0 = [](std::atomic_ref<ValueType>& ref) { return static_cast<int>(ref.exchange(0)); };
 
-    int (*inc)(std::atomic_ref<ValueType> & ref);
+    int (*inc)(std::atomic_ref<ValueType>& ref);
     if constexpr (AddViaCas) {
         inc = [](std::atomic_ref<ValueType>& ref) {
             for (;;) {
@@ -289,6 +343,110 @@ void test_gh_1497() {
     }
 }
 
+#ifndef _M_CEE // TRANSITION, VSO-1659496
+// GH-140: STL: We should _STD qualify _Ugly function calls to avoid ADL
+template <class T>
+struct holder {
+    T t;
+};
+
+struct incomplete;
+
+template <class T, class Tag>
+struct tagged_trivial {
+    T t;
+};
+
+template <class T>
+void test_incomplete_associated_class() { // COMPILE-ONLY
+    T o{};
+    std::atomic_ref<T> a{o};
+
+    a = o;
+
+    (void) a.is_lock_free();
+    (void) a.load();
+    (void) a.load(std::memory_order_relaxed);
+    a.store(T{});
+    a.store(T{}, std::memory_order_relaxed);
+    (void) a.exchange(T{});
+    (void) a.exchange(T{}, std::memory_order_relaxed);
+    (void) a.compare_exchange_weak(o, T{});
+    (void) a.compare_exchange_weak(o, T{}, std::memory_order_relaxed);
+    (void) a.compare_exchange_weak(o, T{}, std::memory_order_relaxed, std::memory_order_relaxed);
+    (void) a.compare_exchange_strong(o, T{});
+    (void) a.compare_exchange_strong(o, T{}, std::memory_order_relaxed);
+    (void) a.compare_exchange_strong(o, T{}, std::memory_order_relaxed, std::memory_order_relaxed);
+    a.wait(T{});
+    a.wait(T{}, std::memory_order_relaxed);
+    a.notify_one();
+    a.notify_all();
+
+    if constexpr (std::is_pointer_v<T>) {
+        std::remove_pointer_t<T> pointee{};
+        a = std::addressof(pointee);
+
+        (void) a.operator+=(0); // a += 0 triggers ADL
+        (void) a.operator-=(0); // a -= 0 triggers ADL
+        (void) a.operator++(); // ++a triggers ADL
+        (void) a.operator--(); // --a triggers ADL
+        (void) a.operator++(0); // a++ triggers ADL
+        (void) a.operator--(0); // a-- triggers ADL
+        (void) a.fetch_add(0);
+        (void) a.fetch_add(0, std::memory_order_relaxed);
+        (void) a.fetch_sub(0);
+        (void) a.fetch_sub(0, std::memory_order_relaxed);
+    }
+}
+
+void test_incomplete_associated_class_all() { // COMPILE-ONLY
+    test_incomplete_associated_class<tagged_trivial<uint8_t, holder<incomplete>>>();
+    test_incomplete_associated_class<tagged_trivial<uint16_t, holder<incomplete>>>();
+    test_incomplete_associated_class<tagged_trivial<uint32_t, holder<incomplete>>>();
+    test_incomplete_associated_class<tagged_trivial<uint64_t, holder<incomplete>>>();
+    test_incomplete_associated_class<tagged_trivial<uint64_t[2], holder<incomplete>>>();
+
+    test_incomplete_associated_class<tagged_trivial<uint8_t[3], holder<incomplete>>>();
+    test_incomplete_associated_class<tagged_trivial<uint16_t[3], holder<incomplete>>>();
+    test_incomplete_associated_class<tagged_trivial<uint32_t[3], holder<incomplete>>>();
+    test_incomplete_associated_class<tagged_trivial<uint64_t[3], holder<incomplete>>>();
+
+    test_incomplete_associated_class<tagged_trivial<uint8_t, holder<incomplete>>*>();
+    test_incomplete_associated_class<tagged_trivial<uint16_t, holder<incomplete>>*>();
+    test_incomplete_associated_class<tagged_trivial<uint32_t, holder<incomplete>>*>();
+    test_incomplete_associated_class<tagged_trivial<uint64_t, holder<incomplete>>*>();
+    test_incomplete_associated_class<tagged_trivial<uint64_t[2], holder<incomplete>>*>();
+
+    test_incomplete_associated_class<tagged_trivial<uint8_t[3], holder<incomplete>>*>();
+    test_incomplete_associated_class<tagged_trivial<uint16_t[3], holder<incomplete>>*>();
+    test_incomplete_associated_class<tagged_trivial<uint32_t[3], holder<incomplete>>*>();
+    test_incomplete_associated_class<tagged_trivial<uint64_t[3], holder<incomplete>>*>();
+}
+#endif // ^^^ no workaround ^^^
+
+// GH-4472 "<atomic>: With _STD_ATOMIC_ALWAYS_USE_CMPXCHG16B defined to 1,
+// atomic_ref<16 bytes> does not report is_lock_free and is_always_lock_free correctly"
+void test_gh_4472() {
+    struct two_pointers_t {
+        void* left;
+        void* right;
+    };
+
+    alignas(std::atomic_ref<two_pointers_t>::required_alignment) two_pointers_t two_pointers;
+
+    static_assert(std::atomic_ref<two_pointers_t>::required_alignment == sizeof(two_pointers_t));
+
+#ifdef _WIN64
+    static_assert(std::atomic_ref<two_pointers_t>::is_always_lock_free == _STD_ATOMIC_ALWAYS_USE_CMPXCHG16B);
+#else
+    static_assert(std::atomic_ref<two_pointers_t>::is_always_lock_free);
+#endif
+
+    // We expect tests to run on machines that support DCAS, which is required by Win8+.
+    std::atomic_ref<two_pointers_t> ar{two_pointers};
+    assert(ar.is_lock_free());
+}
+
 int main() {
     test_ops<false, char>();
     test_ops<false, signed char>();
@@ -341,4 +499,7 @@ int main() {
     test_ptr_ops<long*>();
 
     test_gh_1497();
+    test_gh_4472();
 }
+
+#endif // ^^^ run test ^^^

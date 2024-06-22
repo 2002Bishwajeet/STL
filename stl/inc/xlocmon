@@ -3,7 +3,6 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#pragma once
 #ifndef _XLOCMON_
 #define _XLOCMON_
 #include <yvals_core.h>
@@ -19,7 +18,9 @@ _STL_DISABLE_CLANG_WARNINGS
 #undef new
 
 _STD_BEGIN
-struct money_base : locale::facet { // ultimate base class for moneypunct
+_EXPORT_STD struct money_base // ultimate base class for moneypunct
+    : locale::facet // TRANSITION, ABI, shouldn't be derived from locale::facet
+{
     enum { // constants for different format codes
         symbol = '$',
         sign   = '+',
@@ -33,7 +34,8 @@ struct money_base : locale::facet { // ultimate base class for moneypunct
         char field[4];
     };
 
-    money_base(size_t _Refs = 0) : locale::facet(_Refs) {}
+    money_base(size_t _Refs = 0) noexcept // strengthened
+        : locale::facet(_Refs) {}
 };
 
 template <class _Elem>
@@ -241,7 +243,7 @@ private:
     _Locinfo::_Cvtvec _Cvt; // conversion information
 };
 
-template <class _Elem, bool _Intl = false>
+_EXPORT_STD template <class _Elem, bool _Intl = false>
 class moneypunct : public _Mpunct<_Elem> { // facet for defining monetary punctuation text
 public:
     static_assert(!_ENFORCE_FACET_SPECIALIZATIONS || _Is_any_of_v<_Elem, char, wchar_t>, _FACET_SPECIALIZATION_MESSAGE);
@@ -257,7 +259,7 @@ public:
     static size_t _Getcat(const locale::facet** _Ppf = nullptr, const locale* _Ploc = nullptr) {
         // return locale category mask and construct standard facet
         if (_Ppf && !*_Ppf) {
-            *_Ppf = new moneypunct<_Elem, _Intl>(_Locinfo(_Ploc->c_str()), 0, true);
+            *_Ppf = new moneypunct<_Elem, _Intl>(_Locinfo(_Ploc->_C_str()), 0, true);
         }
 
         return _X_MONETARY;
@@ -272,7 +274,7 @@ protected:
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdllimport-static-field-def"
-#endif // __clang__
+#endif // defined(__clang__)
 
 template <class _Elem, bool _Intl>
 _PGLOBAL const bool moneypunct<_Elem, _Intl>::intl = _Intl;
@@ -282,9 +284,9 @@ __PURE_APPDOMAIN_GLOBAL locale::id moneypunct<_Elem, _Intl>::id;
 
 #ifdef __clang__
 #pragma clang diagnostic pop
-#endif // __clang__
+#endif // defined(__clang__)
 
-template <class _Elem, bool _Intl = false>
+_EXPORT_STD template <class _Elem, bool _Intl = false>
 class moneypunct_byname : public moneypunct<_Elem, _Intl> { // moneypunct for named locale
 public:
     static_assert(!_ENFORCE_FACET_SPECIALIZATIONS || _Is_any_of_v<_Elem, char, wchar_t>, _FACET_SPECIALIZATION_MESSAGE);
@@ -299,7 +301,7 @@ protected:
     __CLR_OR_THIS_CALL ~moneypunct_byname() noexcept override {}
 };
 
-template <class _Elem, class _InIt = istreambuf_iterator<_Elem, char_traits<_Elem>>>
+_EXPORT_STD template <class _Elem, class _InIt = istreambuf_iterator<_Elem, char_traits<_Elem>>>
 class money_get : public locale::facet { // facet for converting text to encoded monetary amounts
 private:
     using _Mypunct0 = moneypunct<_Elem, false>;
@@ -337,7 +339,7 @@ public:
     static size_t _Getcat(const locale::facet** _Ppf = nullptr, const locale* _Ploc = nullptr) {
         // return locale category mask and construct standard facet
         if (_Ppf && !*_Ppf) {
-            *_Ppf = new money_get<_Elem, _InIt>(_Locinfo(_Ploc->c_str()));
+            *_Ppf = new money_get<_Elem, _InIt>(_Locinfo(_Ploc->_C_str()));
         }
 
         return _X_MONETARY;
@@ -364,7 +366,7 @@ protected:
             const char* _Eb = _Str.c_str();
             char* _Ep;
             int _Errno             = 0;
-            const long double _Ans = _Stodx_v2(_Eb, &_Ep, 0, &_Errno); // convert and "widen" double to long double
+            const long double _Ans = _Stodx_v3(_Eb, &_Ep, &_Errno); // convert and "widen" double to long double
 
             if (_Ep == _Eb || _Errno != 0) {
                 _State |= ios_base::failbit;
@@ -565,7 +567,15 @@ private:
                     if (_Pattern.field[_Off] == money_base::space && !_Seen) {
                         _Bad = true; // fail if no space seen
                     }
-                } // parse optional space
+
+                    break;
+                }
+
+            default:
+                _STL_ASSERT(false, "Invalid money_base::pattern, see N4981 [locale.moneypunct.general]/1: "
+                                   "In the field member of a pattern object, each value symbol, sign, value, "
+                                   "and either space or none appears exactly once.");
+                break;
             } // switch
         }
 
@@ -594,16 +604,16 @@ private:
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdllimport-static-field-def"
-#endif // __clang__
+#endif // defined(__clang__)
 
 template <class _Elem, class _InIt>
 __PURE_APPDOMAIN_GLOBAL locale::id money_get<_Elem, _InIt>::id;
 
 #ifdef __clang__
 #pragma clang diagnostic pop
-#endif // __clang__
+#endif // defined(__clang__)
 
-template <class _Elem, class _OutIt = ostreambuf_iterator<_Elem, char_traits<_Elem>>>
+_EXPORT_STD template <class _Elem, class _OutIt = ostreambuf_iterator<_Elem, char_traits<_Elem>>>
 class money_put : public locale::facet { // facet for converting encoded monetary amounts to text
 private:
     using _Mypunct0 = moneypunct<_Elem, false>;
@@ -641,7 +651,7 @@ public:
     static size_t _Getcat(const locale::facet** _Ppf = nullptr, const locale* _Ploc = nullptr) {
         // return locale category mask and construct standard facet
         if (_Ppf && !*_Ppf) {
-            *_Ppf = new money_put<_Elem, _OutIt>(_Locinfo(_Ploc->c_str()));
+            *_Ppf = new money_put<_Elem, _OutIt>(_Locinfo(_Ploc->_C_str()));
         }
 
         return _X_MONETARY;
@@ -777,13 +787,19 @@ private:
 
             case money_base::space: // count space size
                 ++_Fillcount; // at least one space
-                // fall through
+                _FALLTHROUGH;
 
             case money_base::none: // count space size
                 if (_Off != 3) {
                     _Intern = true; // optional internal fill
                 }
 
+                break;
+
+            default:
+                _STL_ASSERT(false, "Invalid money_base::pattern, see N4981 [locale.moneypunct.general]/1: "
+                                   "In the field member of a pattern object, each value symbol, sign, value, "
+                                   "and either space or none appears exactly once.");
                 break;
             }
         }
@@ -831,13 +847,20 @@ private:
 
             case money_base::space: // put any internal fill
                 _Dest = _Rep(_Dest, _Fill, 1);
-                // fall through
+                _FALLTHROUGH;
 
             case money_base::none: // put any internal fill
                 if (_Afl == ios_base::internal) { // put internal fill
                     _Dest      = _Rep(_Dest, _Fill, _Fillcount);
                     _Fillcount = 0;
                 }
+                break;
+
+            default:
+                _STL_ASSERT(false, "Invalid money_base::pattern, see N4981 [locale.moneypunct.general]/1: "
+                                   "In the field member of a pattern object, each value symbol, sign, value, "
+                                   "and either space or none appears exactly once.");
+                break;
             }
         }
 
@@ -870,7 +893,7 @@ private:
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdllimport-static-field-def"
-#endif // __clang__
+#endif // defined(__clang__)
 
 template <class _Elem, class _OutIt>
 __PURE_APPDOMAIN_GLOBAL locale::id money_put<_Elem, _OutIt>::id;
@@ -902,12 +925,12 @@ template __PURE_APPDOMAIN_GLOBAL locale::id
     money_get<unsigned short, istreambuf_iterator<unsigned short, char_traits<unsigned short>>>::id;
 template __PURE_APPDOMAIN_GLOBAL locale::id
     money_put<unsigned short, ostreambuf_iterator<unsigned short, char_traits<unsigned short>>>::id;
-#endif // __FORCE_INSTANCE
+#endif // defined(__FORCE_INSTANCE)
 #endif // defined(_DLL_CPPLIB)
 
 #ifdef __clang__
 #pragma clang diagnostic pop
-#endif // __clang__
+#endif // defined(__clang__)
 
 _STD_END
 

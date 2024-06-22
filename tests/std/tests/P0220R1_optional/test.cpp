@@ -15,31 +15,22 @@
 //   the MSVC-specific test cases.
 //
 // The LLVM sources are updated manually:
-// 1. Navigate a bash prompt to `libcxx` in an LLVM monorepo.
-// 2. Redirect the output of the bash loop:
-//      for f in $(find test/std/utilities/utility/utility.inplace test/std/utilities/optional -name '*.pass.cpp');
-//        do echo "// -- BEGIN: $f";
-//        sed -e 's/int main(int, char\*\*)/int run_test()/; s/FIXME/TODO/g' < $f;
-//        echo -e "// -- END: $f\n";
-//      done
+// 1. Navigate a bash prompt to `llvm-project/libcxx`.
+// 2. Redirect the output of:
+//      ../../tools/scripts/transform_llvm.sh test/std/utilities/utility/utility.inplace test/std/utilities/optional
 //    into a file.
 // 3. Replicate the namespace structure from here into that file, use its content to replace everything between the
 //    "LLVM SOURCES BEGIN"/"END" delimiters, and ensure that `main` properly calls each of the `run_test` functions.
-// 4. You'll need to fixup the specialization of std::hash in test/std/utilities/optional/optional.hash/hash.pass.cpp.
+// 4. Fix the specialization of std::hash by closing/reopening namespaces and qualifying types.
+// 5. Restore the TRANSITION-commented workarounds.
+// 6. Restore the _HAS_CXX20 and _HAS_CXX23 guards.
 //
 // Yes, this is an awkward hand process; notably the required headers can change without notice. We should investigate
 // running the libc++ tests directly in all of our configurations so we needn't replicate this subset of files.
 
-#define _HAS_DEPRECATED_IS_LITERAL_TYPE 1
-#define _HAS_DEPRECATED_RESULT_OF       1
-#define _SILENCE_CXX17_IS_LITERAL_TYPE_DEPRECATION_WARNING
-#define _SILENCE_CXX17_RESULT_OF_DEPRECATION_WARNING
-#define _SILENCE_CXX20_CISO646_REMOVED_WARNING
 #define _LIBCXX_IN_DEVCRT
 #include <msvc_stdlib_force_include.h> // Must precede any other libc++ headers
 #include <stdlib.h>
-
-#define STATIC_ASSERT(...) static_assert(__VA_ARGS__, #__VA_ARGS__)
 
 // clang-format off
 // LLVM SOURCES BEGIN
@@ -51,6 +42,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 
 // <utility>
@@ -74,12 +66,10 @@
 // template <size_t I>
 //   inline constexpr in_place_index_t<I> in_place_index{};
 
-#include <utility>
 #include <cassert>
 #include <memory>
-
-#include "test_macros.h"
-#include "type_id.h"
+#include <type_traits>
+#include <utility>
 
 namespace utility::in_place {
 template <class Tp, class Up>
@@ -109,18 +99,46 @@ int run_test() {
     {
         using T1 = std::in_place_index_t<0>;
         using T2 = std::in_place_index_t<1>;
-        using T3 = std::in_place_index_t<static_cast<size_t>(-1)>;
+        using T3 = std::in_place_index_t<static_cast<std::size_t>(-1)>;
         static_assert(!std::is_same<T1, T2>::value && !std::is_same<T1, T3>::value);
         static_assert(!std::is_same<T2, T3>::value);
         static_assert(check_tag<T1>(std::in_place_index<0>));
         static_assert(check_tag<T2>(std::in_place_index<1>));
-        static_assert(check_tag<T3>(std::in_place_index<static_cast<size_t>(-1)>));
+        static_assert(check_tag<T3>(std::in_place_index<static_cast<std::size_t>(-1)>));
     }
 
   return 0;
 }
 } // namespace utility::in_place
 // -- END: test/std/utilities/utility/utility.inplace/inplace.pass.cpp
+
+// -- BEGIN: test/std/utilities/optional/iterator_concept_conformance.compile.pass.cpp
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+
+// optional
+
+#include <optional>
+
+#include <iterator>
+
+#if _HAS_CXX20
+static_assert(!std::indirectly_readable<std::optional<int> >);
+static_assert(!std::indirectly_writable<std::optional<int>, int>);
+static_assert(!std::weakly_incrementable<std::optional<int> >);
+static_assert(!std::indirectly_movable<std::optional<int>, std::optional<int>>);
+static_assert(!std::indirectly_movable_storable<std::optional<int>, std::optional<int>>);
+static_assert(!std::indirectly_copyable<std::optional<int>, std::optional<int>>);
+static_assert(!std::indirectly_copyable_storable<std::optional<int>, std::optional<int>>);
+#endif // ^^^ _HAS_CXX20 ^^^
+// -- END: test/std/utilities/optional/iterator_concept_conformance.compile.pass.cpp
 
 // -- BEGIN: test/std/utilities/optional/optional.bad_optional_access/default.pass.cpp
 //===----------------------------------------------------------------------===//
@@ -132,7 +150,6 @@ int run_test() {
 //===----------------------------------------------------------------------===//
 
 
-// XFAIL: dylib-has-no-bad_optional_access
 
 // <optional>
 
@@ -163,7 +180,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: dylib-has-no-bad_optional_access
+
 
 // <optional>
 
@@ -187,6 +204,119 @@ int run_test()
 } // namespace bad_optional_access::derive
 // -- END: test/std/utilities/optional/optional.bad_optional_access/derive.pass.cpp
 
+// -- BEGIN: test/std/utilities/optional/optional.comp_with_t/compare.three_way.pass.cpp
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+
+// <optional>
+
+// [optional.comp.with.t], comparison with T
+
+// template<class T, class U>
+//     requires (!is-derived-from-optional<U>) && three_way_comparable_with<T, U>
+//   constexpr compare_three_way_result_t<T, U>
+//     operator<=>(const optional<T>&, const U&);
+
+#include <cassert>
+#include <compare>
+#include <optional>
+
+#include "test_comparisons.h"
+
+namespace comp_with_t::three_way {
+#if _HAS_CXX20
+struct SomeInt {
+  int value_;
+
+  constexpr explicit SomeInt(int value = 0) : value_(value) {}
+
+  auto operator<=>(const SomeInt&) const = default;
+};
+
+template <class T, class U>
+concept HasSpaceship = requires(T t, U u) { t <=> u; };
+
+// SFINAE tests.
+
+static_assert(std::three_way_comparable_with<std::optional<int>, std::optional<int>>);
+static_assert(HasSpaceship<std::optional<int>, std::optional<int>>);
+
+static_assert(std::three_way_comparable_with<std::optional<SomeInt>, std::optional<SomeInt>>);
+static_assert(HasSpaceship<std::optional<SomeInt>, std::optional<SomeInt>>);
+
+static_assert(!HasSpaceship<std::optional<int>, std::optional<SomeInt>>);
+
+// Runtime and static tests.
+
+constexpr void test_custom_integral() {
+  {
+    SomeInt t{3};
+    std::optional<SomeInt> op{3};
+    assert((t <=> op) == std::strong_ordering::equal);
+    assert(testOrder(t, op, std::strong_ordering::equal));
+  }
+  {
+    SomeInt t{2};
+    std::optional<SomeInt> op{3};
+    assert((t <=> op) == std::strong_ordering::less);
+    assert(testOrder(t, op, std::strong_ordering::less));
+  }
+  {
+    SomeInt t{3};
+    std::optional<SomeInt> op{2};
+    assert((t <=> op) == std::strong_ordering::greater);
+    assert(testOrder(t, op, std::strong_ordering::greater));
+  }
+}
+
+constexpr void test_int() {
+  {
+    int t{3};
+    std::optional<int> op{3};
+    assert((t <=> op) == std::strong_ordering::equal);
+    assert(testOrder(t, op, std::strong_ordering::equal));
+  }
+  {
+    int t{2};
+    std::optional<int> op{3};
+    assert((t <=> op) == std::strong_ordering::less);
+    assert(testOrder(t, op, std::strong_ordering::less));
+  }
+  {
+    int t{3};
+    std::optional<int> op{2};
+    assert((t <=> op) == std::strong_ordering::greater);
+    assert(testOrder(t, op, std::strong_ordering::greater));
+  }
+}
+
+constexpr bool test() {
+  test_custom_integral();
+  test_int();
+
+  return true;
+}
+
+int run_test() {
+  assert(test());
+  static_assert(test());
+  return 0;
+}
+#else // ^^^ _HAS_CXX20 / !_HAS_CXX20 vvv
+int run_test() {
+    return 0;
+}
+#endif // ^^^ !_HAS_CXX20 ^^^
+} // namespace comp_with_t::three_way
+// -- END: test/std/utilities/optional/optional.comp_with_t/compare.three_way.pass.cpp
+
 // -- BEGIN: test/std/utilities/optional/optional.comp_with_t/equal.pass.cpp
 //===----------------------------------------------------------------------===//
 //
@@ -195,6 +325,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -267,6 +398,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T, class U> constexpr bool operator>(const optional<T>& x, const U& v);
@@ -337,6 +469,7 @@ int run_test() {
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -411,6 +544,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T, class U> constexpr bool operator<=(const optional<T>& x, const U& v);
@@ -484,6 +618,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T, class U> constexpr bool operator<(const optional<T>& x, const U& v);
@@ -554,6 +689,7 @@ int run_test() {
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -627,18 +763,20 @@ int run_test() {
 //===----------------------------------------------------------------------===//
 
 
+
 // <optional>
 
 // Test that <optional> provides all of the arithmetic, enum, and pointer
 // hash specializations.
 
+#include <functional>
 #include <optional>
 
 #include "poisoned_hash_helper.h"
 
 #include "test_macros.h"
 
-namespace enabled_hash {
+namespace hash::enabled_hash {
 int run_test() {
   test_library_hash_specializations_available();
   {
@@ -647,7 +785,7 @@ int run_test() {
 
   return 0;
 }
-} // namespace enabled_hash
+} // namespace hash::enabled_hash
 // -- END: test/std/utilities/optional/optional.hash/enabled_hash.pass.cpp
 
 // -- BEGIN: test/std/utilities/optional/optional.hash/hash.pass.cpp
@@ -658,6 +796,7 @@ int run_test() {
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -681,7 +820,7 @@ namespace std {
 
 template <>
 struct hash<::hash::B> {
-  size_t operator()(::hash::B const&) TEST_NOEXCEPT_FALSE { return 0; }
+  std::size_t operator()(::hash::B const&) noexcept(false) { return 0; }
 };
 
 }
@@ -722,22 +861,664 @@ int run_test()
         assert(std::hash<optional<T>>{}(opt) == std::hash<T>{}(*opt));
     }
     {
+#ifndef __EDG__ // TRANSITION, DevCom-10107834
       test_hash_enabled_for_type<std::optional<int> >();
       test_hash_enabled_for_type<std::optional<int*> >();
       test_hash_enabled_for_type<std::optional<const int> >();
       test_hash_enabled_for_type<std::optional<int* const> >();
+#endif // ^^^ no workaround ^^^
 
       test_hash_disabled_for_type<std::optional<A>>();
       test_hash_disabled_for_type<std::optional<const A>>();
 
+#ifndef __EDG__ // TRANSITION, DevCom-10107834
       test_hash_enabled_for_type<std::optional<B>>();
       test_hash_enabled_for_type<std::optional<const B>>();
+#endif // ^^^ no workaround ^^^
     }
 
   return 0;
 }
 } // namespace hash
 // -- END: test/std/utilities/optional/optional.hash/hash.pass.cpp
+
+// -- BEGIN: test/std/utilities/optional/optional.monadic/and_then.pass.cpp
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+
+// <optional>
+
+// template<class F> constexpr auto and_then(F&&) &;
+// template<class F> constexpr auto and_then(F&&) &&;
+// template<class F> constexpr auto and_then(F&&) const&;
+// template<class F> constexpr auto and_then(F&&) const&&;
+
+#include <cassert>
+#include <optional>
+
+#include "test_macros.h"
+
+namespace monadic::and_then {
+#if _HAS_CXX23
+struct LVal {
+  constexpr std::optional<int> operator()(int&) { return 1; }
+  std::optional<int> operator()(const int&) = delete;
+  std::optional<int> operator()(int&&) = delete;
+  std::optional<int> operator()(const int&&) = delete;
+};
+
+struct CLVal {
+  std::optional<int> operator()(int&) = delete;
+  constexpr std::optional<int> operator()(const int&) { return 1; }
+  std::optional<int> operator()(int&&) = delete;
+  std::optional<int> operator()(const int&&) = delete;
+};
+
+struct RVal {
+  std::optional<int> operator()(int&) = delete;
+  std::optional<int> operator()(const int&) = delete;
+  constexpr std::optional<int> operator()(int&&) { return 1; }
+  std::optional<int> operator()(const int&&) = delete;
+};
+
+struct CRVal {
+  std::optional<int> operator()(int&) = delete;
+  std::optional<int> operator()(const int&) = delete;
+  std::optional<int> operator()(int&&) = delete;
+  constexpr std::optional<int> operator()(const int&&) { return 1; }
+};
+
+struct RefQual {
+  constexpr std::optional<int> operator()(int) & { return 1; }
+  std::optional<int> operator()(int) const& = delete;
+  std::optional<int> operator()(int) && = delete;
+  std::optional<int> operator()(int) const&& = delete;
+};
+
+struct CRefQual {
+  std::optional<int> operator()(int) & = delete;
+  constexpr std::optional<int> operator()(int) const& { return 1; }
+  std::optional<int> operator()(int) && = delete;
+  std::optional<int> operator()(int) const&& = delete;
+};
+
+struct RVRefQual {
+  std::optional<int> operator()(int) & = delete;
+  std::optional<int> operator()(int) const& = delete;
+  constexpr std::optional<int> operator()(int) && { return 1; }
+  std::optional<int> operator()(int) const&& = delete;
+};
+
+struct RVCRefQual {
+  std::optional<int> operator()(int) & = delete;
+  std::optional<int> operator()(int) const& = delete;
+  std::optional<int> operator()(int) && = delete;
+  constexpr std::optional<int> operator()(int) const&& { return 1; }
+};
+
+struct NOLVal {
+  constexpr std::optional<int> operator()(int&) { return std::nullopt; }
+  std::optional<int> operator()(const int&) = delete;
+  std::optional<int> operator()(int&&) = delete;
+  std::optional<int> operator()(const int&&) = delete;
+};
+
+struct NOCLVal {
+  std::optional<int> operator()(int&) = delete;
+  constexpr std::optional<int> operator()(const int&) { return std::nullopt; }
+  std::optional<int> operator()(int&&) = delete;
+  std::optional<int> operator()(const int&&) = delete;
+};
+
+struct NORVal {
+  std::optional<int> operator()(int&) = delete;
+  std::optional<int> operator()(const int&) = delete;
+  constexpr std::optional<int> operator()(int&&) { return std::nullopt; }
+  std::optional<int> operator()(const int&&) = delete;
+};
+
+struct NOCRVal {
+  std::optional<int> operator()(int&) = delete;
+  std::optional<int> operator()(const int&) = delete;
+  std::optional<int> operator()(int&&) = delete;
+  constexpr std::optional<int> operator()(const int&&) { return std::nullopt; }
+};
+
+struct NORefQual {
+  constexpr std::optional<int> operator()(int) & { return std::nullopt; }
+  std::optional<int> operator()(int) const& = delete;
+  std::optional<int> operator()(int) && = delete;
+  std::optional<int> operator()(int) const&& = delete;
+};
+
+struct NOCRefQual {
+  std::optional<int> operator()(int) & = delete;
+  constexpr std::optional<int> operator()(int) const& { return std::nullopt; }
+  std::optional<int> operator()(int) && = delete;
+  std::optional<int> operator()(int) const&& = delete;
+};
+
+struct NORVRefQual {
+  std::optional<int> operator()(int) & = delete;
+  std::optional<int> operator()(int) const& = delete;
+  constexpr std::optional<int> operator()(int) && { return std::nullopt; }
+  std::optional<int> operator()(int) const&& = delete;
+};
+
+struct NORVCRefQual {
+  std::optional<int> operator()(int) & = delete;
+  std::optional<int> operator()(int) const& = delete;
+  std::optional<int> operator()(int) && = delete;
+  constexpr std::optional<int> operator()(int) const&& { return std::nullopt; }
+};
+
+struct NoCopy {
+  NoCopy() = default;
+  NoCopy(const NoCopy&) { assert(false); }
+  std::optional<int> operator()(const NoCopy&&) { return 1; }
+};
+
+struct NonConst {
+  std::optional<int> non_const() { return 1; }
+};
+
+constexpr void test_val_types() {
+  // Test & overload
+  {
+    // Without & qualifier on F's operator()
+    {
+      std::optional<int> i{0};
+      assert(i.and_then(LVal{}) == 1);
+      assert(i.and_then(NOLVal{}) == std::nullopt);
+      ASSERT_SAME_TYPE(decltype(i.and_then(LVal{})), std::optional<int>);
+    }
+
+    //With & qualifier on F's operator()
+    {
+      std::optional<int> i{0};
+      RefQual l{};
+      assert(i.and_then(l) == 1);
+      NORefQual nl{};
+      assert(i.and_then(nl) == std::nullopt);
+      ASSERT_SAME_TYPE(decltype(i.and_then(l)), std::optional<int>);
+    }
+  }
+
+  // Test const& overload
+  {
+    // Without & qualifier on F's operator()
+    {
+      const std::optional<int> i{0};
+      assert(i.and_then(CLVal{}) == 1);
+      assert(i.and_then(NOCLVal{}) == std::nullopt);
+      ASSERT_SAME_TYPE(decltype(i.and_then(CLVal{})), std::optional<int>);
+    }
+
+    //With & qualifier on F's operator()
+    {
+      const std::optional<int> i{0};
+      const CRefQual l{};
+      assert(i.and_then(l) == 1);
+      const NOCRefQual nl{};
+      assert(i.and_then(nl) == std::nullopt);
+      ASSERT_SAME_TYPE(decltype(i.and_then(l)), std::optional<int>);
+    }
+  }
+
+  // Test && overload
+  {
+    // Without & qualifier on F's operator()
+    {
+      std::optional<int> i{0};
+      assert(std::move(i).and_then(RVal{}) == 1);
+      assert(std::move(i).and_then(NORVal{}) == std::nullopt);
+      ASSERT_SAME_TYPE(decltype(std::move(i).and_then(RVal{})), std::optional<int>);
+    }
+
+    //With & qualifier on F's operator()
+    {
+      std::optional<int> i{0};
+      assert(i.and_then(RVRefQual{}) == 1);
+      assert(i.and_then(NORVRefQual{}) == std::nullopt);
+      ASSERT_SAME_TYPE(decltype(i.and_then(RVRefQual{})), std::optional<int>);
+    }
+  }
+
+  // Test const&& overload
+  {
+    // Without & qualifier on F's operator()
+    {
+      const std::optional<int> i{0};
+      assert(std::move(i).and_then(CRVal{}) == 1);
+      assert(std::move(i).and_then(NOCRVal{}) == std::nullopt);
+      ASSERT_SAME_TYPE(decltype(std::move(i).and_then(CRVal{})), std::optional<int>);
+    }
+
+    //With & qualifier on F's operator()
+    {
+      const std::optional<int> i{0};
+      const RVCRefQual l{};
+      assert(i.and_then(std::move(l)) == 1);
+      const NORVCRefQual nl{};
+      assert(i.and_then(std::move(nl)) == std::nullopt);
+      ASSERT_SAME_TYPE(decltype(i.and_then(std::move(l))), std::optional<int>);
+    }
+  }
+}
+
+// check that the lambda body is not instantiated during overload resolution
+constexpr void test_sfinae() {
+  std::optional<NonConst> opt{};
+  auto l = [](auto&& x) { return x.non_const(); };
+  opt.and_then(l);
+  std::move(opt).and_then(l);
+}
+
+constexpr bool test() {
+  test_val_types();
+  std::optional<int> opt{};
+  const auto& copt = opt;
+
+  const auto never_called = [](int) {
+    assert(false);
+    return std::optional<int>{};
+  };
+
+  opt.and_then(never_called);
+  std::move(opt).and_then(never_called);
+  copt.and_then(never_called);
+  std::move(copt).and_then(never_called);
+
+  std::optional<NoCopy> nc;
+  const auto& cnc = nc;
+  std::move(cnc).and_then(NoCopy{});
+  std::move(nc).and_then(NoCopy{});
+
+  return true;
+}
+
+int run_test() {
+  test();
+  static_assert(test());
+  return 0;
+}
+#else // ^^^ _HAS_CXX23 / !_HAS_CXX23 vvv
+int run_test() {
+    return 0;
+}
+#endif // ^^^ !_HAS_CXX23 ^^^
+} // namespace monadic::and_then
+// -- END: test/std/utilities/optional/optional.monadic/and_then.pass.cpp
+
+// -- BEGIN: test/std/utilities/optional/optional.monadic/or_else.pass.cpp
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+// <optional>
+
+// template<class F> constexpr optional or_else(F&&) &&;
+// template<class F> constexpr optional or_else(F&&) const&;
+
+#include "MoveOnly.h"
+
+#include <cassert>
+#include <optional>
+
+namespace monadic::or_else {
+#if _HAS_CXX23
+struct NonMovable {
+  NonMovable() = default;
+  NonMovable(NonMovable&&) = delete;
+};
+
+template <class Opt, class F>
+concept has_or_else = requires(Opt&& opt, F&& f) {
+  {std::forward<Opt>(opt).or_else(std::forward<F>(f))};
+};
+
+template <class T>
+std::optional<T> return_optional() {}
+
+static_assert(has_or_else<std::optional<int>&, decltype(return_optional<int>)>);
+static_assert(has_or_else<std::optional<int>&&, decltype(return_optional<int>)>);
+static_assert(!has_or_else<std::optional<MoveOnly>&, decltype(return_optional<MoveOnly>)>);
+static_assert(has_or_else<std::optional<MoveOnly>&&, decltype(return_optional<MoveOnly>)>);
+static_assert(!has_or_else<std::optional<NonMovable>&, decltype(return_optional<NonMovable>)>);
+static_assert(!has_or_else<std::optional<NonMovable>&&, decltype(return_optional<NonMovable>)>);
+
+std::optional<int> take_int(int) { return 0; }
+void take_int_return_void(int) {}
+
+static_assert(!has_or_else<std::optional<int>, decltype(take_int)>);
+static_assert(!has_or_else<std::optional<int>, decltype(take_int_return_void)>);
+static_assert(!has_or_else<std::optional<int>, int>);
+
+constexpr bool test() {
+  {
+    std::optional<int> opt;
+    assert(opt.or_else([] { return std::optional<int>{0}; }) == 0);
+    opt = 1;
+    opt.or_else([] {
+      assert(false);
+      return std::optional<int>{};
+    });
+  }
+  {
+    std::optional<MoveOnly> opt;
+    opt = std::move(opt).or_else([] { return std::optional<MoveOnly>{MoveOnly{}}; });
+    std::move(opt).or_else([] {
+      assert(false);
+      return std::optional<MoveOnly>{};
+    });
+  }
+
+  return true;
+}
+
+int run_test() {
+  test();
+  static_assert(test());
+  return 0;
+}
+#else // ^^^ _HAS_CXX23 / !_HAS_CXX23 vvv
+int run_test() {
+    return 0;
+}
+#endif // ^^^ !_HAS_CXX23 ^^^
+} // namespace monadic::or_else
+// -- END: test/std/utilities/optional/optional.monadic/or_else.pass.cpp
+
+// -- BEGIN: test/std/utilities/optional/optional.monadic/transform.pass.cpp
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+
+// <optional>
+
+// template<class F> constexpr auto transform(F&&) &;
+// template<class F> constexpr auto transform(F&&) &&;
+// template<class F> constexpr auto transform(F&&) const&;
+// template<class F> constexpr auto transform(F&&) const&&;
+
+#include "test_macros.h"
+#include <cassert>
+#include <optional>
+#include <type_traits>
+
+namespace monadic::transform {
+#if _HAS_CXX23
+struct LVal {
+  constexpr int operator()(int&) { return 1; }
+  int operator()(const int&) = delete;
+  int operator()(int&&) = delete;
+  int operator()(const int&&) = delete;
+};
+
+struct CLVal {
+  int operator()(int&) = delete;
+  constexpr int operator()(const int&) { return 1; }
+  int operator()(int&&) = delete;
+  int operator()(const int&&) = delete;
+};
+
+struct RVal {
+  int operator()(int&) = delete;
+  int operator()(const int&) = delete;
+  constexpr int operator()(int&&) { return 1; }
+  int operator()(const int&&) = delete;
+};
+
+struct CRVal {
+  int operator()(int&) = delete;
+  int operator()(const int&) = delete;
+  int operator()(int&&) = delete;
+  constexpr int operator()(const int&&) { return 1; }
+};
+
+struct RefQual {
+  constexpr int operator()(int) & { return 1; }
+  int operator()(int) const& = delete;
+  int operator()(int) && = delete;
+  int operator()(int) const&& = delete;
+};
+
+struct CRefQual {
+  int operator()(int) & = delete;
+  constexpr int operator()(int) const& { return 1; }
+  int operator()(int) && = delete;
+  int operator()(int) const&& = delete;
+};
+
+struct RVRefQual {
+  int operator()(int) & = delete;
+  int operator()(int) const& = delete;
+  constexpr int operator()(int) && { return 1; }
+  int operator()(int) const&& = delete;
+};
+
+struct RVCRefQual {
+  int operator()(int) & = delete;
+  int operator()(int) const& = delete;
+  int operator()(int) && = delete;
+  constexpr int operator()(int) const&& { return 1; }
+};
+
+struct NoCopy {
+  NoCopy() = default;
+  NoCopy(const NoCopy&) { assert(false); }
+  int operator()(const NoCopy&&) { return 1; }
+};
+
+struct NoMove {
+  NoMove() = default;
+  NoMove(NoMove&&) = delete;
+  NoMove operator()(const NoCopy&&) { return NoMove{}; }
+};
+
+constexpr void test_val_types() {
+  // Test & overload
+  {
+    // Without & qualifier on F's operator()
+    {
+      std::optional<int> i{0};
+      assert(i.transform(LVal{}) == 1);
+      ASSERT_SAME_TYPE(decltype(i.transform(LVal{})), std::optional<int>);
+    }
+
+    //With & qualifier on F's operator()
+    {
+      std::optional<int> i{0};
+      RefQual l{};
+      assert(i.transform(l) == 1);
+      ASSERT_SAME_TYPE(decltype(i.transform(l)), std::optional<int>);
+    }
+  }
+
+  // Test const& overload
+  {
+    // Without & qualifier on F's operator()
+    {
+      const std::optional<int> i{0};
+      assert(i.transform(CLVal{}) == 1);
+      ASSERT_SAME_TYPE(decltype(i.transform(CLVal{})), std::optional<int>);
+    }
+
+    //With & qualifier on F's operator()
+    {
+      const std::optional<int> i{0};
+      const CRefQual l{};
+      assert(i.transform(l) == 1);
+      ASSERT_SAME_TYPE(decltype(i.transform(l)), std::optional<int>);
+    }
+  }
+
+  // Test && overload
+  {
+    // Without & qualifier on F's operator()
+    {
+      std::optional<int> i{0};
+      assert(std::move(i).transform(RVal{}) == 1);
+      ASSERT_SAME_TYPE(decltype(std::move(i).transform(RVal{})), std::optional<int>);
+    }
+
+    //With & qualifier on F's operator()
+    {
+      std::optional<int> i{0};
+      assert(i.transform(RVRefQual{}) == 1);
+      ASSERT_SAME_TYPE(decltype(i.transform(RVRefQual{})), std::optional<int>);
+    }
+  }
+
+  // Test const&& overload
+  {
+    // Without & qualifier on F's operator()
+    {
+      const std::optional<int> i{0};
+      assert(std::move(i).transform(CRVal{}) == 1);
+      ASSERT_SAME_TYPE(decltype(std::move(i).transform(CRVal{})), std::optional<int>);
+    }
+
+    //With & qualifier on F's operator()
+    {
+      const std::optional<int> i{0};
+      const RVCRefQual l{};
+      assert(i.transform(std::move(l)) == 1);
+      ASSERT_SAME_TYPE(decltype(i.transform(std::move(l))), std::optional<int>);
+    }
+  }
+}
+
+struct NonConst {
+  int non_const() { return 1; }
+};
+
+// check that the lambda body is not instantiated during overload resolution
+constexpr void test_sfinae() {
+  std::optional<NonConst> opt{};
+  auto l = [](auto&& x) { return x.non_const(); };
+  opt.transform(l);
+  std::move(opt).transform(l);
+}
+
+constexpr bool test() {
+  test_sfinae();
+  test_val_types();
+  std::optional<int> opt;
+  const auto& copt = opt;
+
+  const auto never_called = [](int) {
+    assert(false);
+    return 0;
+  };
+
+  opt.transform(never_called);
+  std::move(opt).transform(never_called);
+  copt.transform(never_called);
+  std::move(copt).transform(never_called);
+
+  std::optional<NoCopy> nc;
+  const auto& cnc = nc;
+  std::move(nc).transform(NoCopy{});
+  std::move(cnc).transform(NoCopy{});
+
+  std::move(nc).transform(NoMove{});
+  std::move(cnc).transform(NoMove{});
+
+  return true;
+}
+
+int run_test() {
+  test();
+  static_assert(test());
+  return 0;
+}
+#else // ^^^ _HAS_CXX23 / !_HAS_CXX23 vvv
+int run_test() {
+    return 0;
+}
+#endif // ^^^ !_HAS_CXX23 ^^^
+} // namespace monadic::transform
+// -- END: test/std/utilities/optional/optional.monadic/transform.pass.cpp
+
+// -- BEGIN: test/std/utilities/optional/optional.nullops/compare.three_way.pass.cpp
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+
+// <optional>
+
+// [optional.nullops], comparison with nullopt
+
+// template<class T>
+//   constexpr strong_ordering operator<=>(const optional<T>&, nullopt_t) noexcept;
+
+#include <cassert>
+#include <compare>
+#include <optional>
+
+#include "test_comparisons.h"
+
+namespace nullops::three_way {
+#if _HAS_CXX20
+constexpr bool test() {
+  {
+    std::optional<int> op;
+    assert((std::nullopt <=> op) == std::strong_ordering::equal);
+    assert(testOrder(std::nullopt, op, std::strong_ordering::equal));
+    assert((op <=> std::nullopt) == std::strong_ordering::equal);
+    assert(testOrder(op, std::nullopt, std::strong_ordering::equal));
+  }
+  {
+    std::optional<int> op{1};
+    assert((std::nullopt <=> op) == std::strong_ordering::less);
+    assert(testOrder(std::nullopt, op, std::strong_ordering::less));
+  }
+  {
+    std::optional<int> op{1};
+    assert((op <=> std::nullopt) == std::strong_ordering::greater);
+    assert(testOrder(op, std::nullopt, std::strong_ordering::greater));
+  }
+
+  return true;
+}
+
+int run_test() {
+  assert(test());
+  static_assert(test());
+  return 0;
+}
+#else // ^^^ _HAS_CXX20 / !_HAS_CXX20 vvv
+int run_test() {
+    return 0;
+}
+#endif // ^^^ !_HAS_CXX20 ^^^
+} // namespace nullops::three_way
+// -- END: test/std/utilities/optional/optional.nullops/compare.three_way.pass.cpp
 
 // -- BEGIN: test/std/utilities/optional/optional.nullops/equal.pass.cpp
 //===----------------------------------------------------------------------===//
@@ -747,6 +1528,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -794,6 +1576,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T> constexpr bool operator>(const optional<T>& x, nullopt_t) noexcept;
@@ -839,6 +1622,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -887,6 +1671,7 @@ int run_test()
 //===----------------------------------------------------------------------===//
 
 
+
 // <optional>
 
 // template <class T> constexpr bool operator<=(const optional<T>& x, nullopt_t) noexcept;
@@ -932,6 +1717,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -979,6 +1765,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T> constexpr bool operator!=(const optional<T>& x, nullopt_t) noexcept;
@@ -1025,6 +1812,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // struct nullopt_t{see below};
@@ -1045,8 +1833,8 @@ using std::nullopt;
 
 constexpr bool test()
 {
-    nullopt_t meow{nullopt};
-    (void)meow;
+    nullopt_t foo{nullopt};
+    (void)foo;
     return true;
 }
 
@@ -1071,6 +1859,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -1284,7 +2073,7 @@ void test_throws()
         optional<T> opt;
         try {
             opt = 42;
-            abort();
+            assert(false);
         } catch (int) {}
         assert(static_cast<bool>(opt) == false);
     }
@@ -1294,7 +2083,7 @@ void test_throws()
         optional<T> opt(std::in_place);
         try {
             opt = 42;
-            abort();
+            assert(false);
         } catch (int) {}
         assert(static_cast<bool>(opt) == true);
         assert(T::dtor_called == 0);
@@ -1307,7 +2096,7 @@ enum MyEnum { Zero, One, Two, Three, FortyTwo = 42 };
 
 using Fn = void(*)();
 
-// https://bugs.llvm.org/show_bug.cgi?id=38638
+// https://llvm.org/PR38638
 template <class T>
 constexpr T pr38638(T v)
 {
@@ -1360,6 +2149,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -1596,7 +2386,7 @@ int run_test()
         {
             X::throw_now = true;
             opt = opt2;
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -1620,9 +2410,10 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
-// optional<T>& operator=(const optional<T>& rhs); // constexpr in C++20
+// constexpr optional<T>& operator=(const optional<T>& rhs);
 
 #include <optional>
 #include <type_traits>
@@ -1667,19 +2458,15 @@ int run_test()
 {
     {
         using O = optional<int>;
-#if TEST_STD_VER > 17
-        LIBCPP_STATIC_ASSERT(assign_empty(O{42}), "");
-        LIBCPP_STATIC_ASSERT(assign_value(O{42}), "");
-#endif
+        static_assert(assign_empty(O{42}));
+        static_assert(assign_value(O{42}));
         assert(assign_empty(O{42}));
         assert(assign_value(O{42}));
     }
     {
         using O = optional<TrivialTestTypes::TestType>;
-#if TEST_STD_VER > 17
-        LIBCPP_STATIC_ASSERT(assign_empty(O{42}), "");
-        LIBCPP_STATIC_ASSERT(assign_value(O{42}), "");
-#endif
+        static_assert(assign_empty(O{42}));
+        static_assert(assign_value(O{42}));
         assert(assign_empty(O{42}));
         assert(assign_value(O{42}));
     }
@@ -1708,7 +2495,7 @@ int run_test()
         {
             X::throw_now = true;
             opt = opt2;
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -1732,6 +2519,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class... Args> T& optional<T>::emplace(Args&&... args);
@@ -1752,11 +2540,11 @@ class X
     int i_;
     int j_ = 0;
 public:
-    X() : i_(0) {}
-    X(int i) : i_(i) {}
-    X(int i, int j) : i_(i), j_(j) {}
+    constexpr X() : i_(0) {}
+    constexpr X(int i) : i_(i) {}
+    constexpr X(int i, int j) : i_(i), j_(j) {}
 
-    friend bool operator==(const X& x, const X& y)
+    friend constexpr bool operator==(const X& x, const X& y)
         {return x.i_ == y.i_ && x.j_ == y.j_;}
 };
 
@@ -1766,13 +2554,15 @@ public:
     static bool dtor_called;
     Y() = default;
     Y(int) { TEST_THROW(6);}
+    Y(const Y&) = default;
+    Y& operator=(const Y&) = default;
     ~Y() {dtor_called = true;}
 };
 
 bool Y::dtor_called = false;
 
 template <class T>
-void test_one_arg() {
+constexpr bool test_one_arg() {
     using Opt = std::optional<T>;
     {
         Opt opt;
@@ -1806,11 +2596,12 @@ void test_one_arg() {
         assert(*opt == T(1));
         assert(&v == &*opt);
     }
+    return true;
 }
 
 
 template <class T>
-void test_multi_arg()
+constexpr bool test_multi_arg()
 {
     test_one_arg<T>();
     using Opt = std::optional<T>;
@@ -1838,6 +2629,7 @@ void test_multi_arg()
         assert(  v == T(5)); // T sets its value to the size of the init list
         assert(*opt == T(5)); // T sets its value to the size of the init list
     }
+    return true;
 }
 
 template <class T>
@@ -1932,7 +2724,16 @@ void test_on_test_type() {
     }
 }
 
-
+TEST_CONSTEXPR_CXX20 bool test_empty_emplace() {
+  optional<const int> opt;
+  auto& v = opt.emplace(42);
+  static_assert(std::is_same_v<const int&, decltype(v)>, "");
+  assert(*opt == 42);
+  assert(v == 42);
+  opt.emplace();
+  assert(*opt == 0);
+  return true;
+}
 
 int run_test()
 {
@@ -1944,31 +2745,44 @@ int run_test()
         using T = int;
         test_one_arg<T>();
         test_one_arg<const T>();
+#if TEST_STD_VER > 17
+        static_assert(test_one_arg<T>());
+        static_assert(test_one_arg<const T>());
+#endif
     }
     {
         using T = ConstexprTestTypes::TestType;
         test_multi_arg<T>();
+#if TEST_STD_VER > 17
+        static_assert(test_multi_arg<T>());
+#endif
     }
     {
         using T = ExplicitConstexprTestTypes::TestType;
         test_multi_arg<T>();
+#if TEST_STD_VER > 17
+        static_assert(test_multi_arg<T>());
+#endif
     }
     {
         using T = TrivialTestTypes::TestType;
         test_multi_arg<T>();
+#if TEST_STD_VER > 17
+        static_assert(test_multi_arg<T>());
+#endif
     }
     {
         using T = ExplicitTrivialTestTypes::TestType;
         test_multi_arg<T>();
+#if TEST_STD_VER > 17
+        static_assert(test_multi_arg<T>());
+#endif
     }
     {
-        optional<const int> opt;
-        auto &v = opt.emplace(42);
-        static_assert( std::is_same_v<const int&, decltype(v)>, "" );
-        assert(*opt == 42);
-        assert(   v == 42);
-        opt.emplace();
-        assert(*opt == 0);
+        test_empty_emplace();
+#if TEST_STD_VER > 17
+        static_assert(test_empty_emplace());
+#endif
     }
 #ifndef TEST_HAS_NO_EXCEPTIONS
     Y::dtor_called = false;
@@ -1981,7 +2795,7 @@ int run_test()
             assert(Y::dtor_called == false);
             auto &v = opt.emplace(1);
             static_assert( std::is_same_v<Y&, decltype(v)>, "" );
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -2006,6 +2820,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class U, class... Args>
@@ -2025,18 +2840,19 @@ class X
 {
     int i_;
     int j_ = 0;
+    bool* dtor_called_;
 public:
-    static bool dtor_called;
-    constexpr X() : i_(0) {}
-    constexpr X(int i) : i_(i) {}
-    constexpr X(std::initializer_list<int> il) : i_(il.begin()[0]), j_(il.begin()[1]) {}
-    ~X() {dtor_called = true;}
+    constexpr X(bool& dtor_called) : i_(0), dtor_called_(&dtor_called) {}
+    constexpr X(int i, bool& dtor_called) : i_(i), dtor_called_(&dtor_called) {}
+    constexpr X(std::initializer_list<int> il, bool& dtor_called)
+    : i_(il.begin()[0]), j_(il.begin()[1]), dtor_called_(&dtor_called) {}
+    X(const X&) = default;
+    X& operator=(const X&) = default;
+    TEST_CONSTEXPR_CXX20 ~X() {*dtor_called_ = true;}
 
     friend constexpr bool operator==(const X& x, const X& y)
         {return x.i_ == y.i_ && x.j_ == y.j_;}
 };
-
-bool X::dtor_called = false;
 
 class Y
 {
@@ -2061,6 +2877,8 @@ public:
     Z(int i) : i_(i) {}
     Z(std::initializer_list<int> il) : i_(il.begin()[0]), j_(il.begin()[1])
         { TEST_THROW(6);}
+    Z(const Z&) = default;
+    Z& operator=(const Z&) = default;
     ~Z() {dtor_called = true;}
 
     friend bool operator==(const Z& x, const Z& y)
@@ -2069,17 +2887,38 @@ public:
 
 bool Z::dtor_called = false;
 
+TEST_CONSTEXPR_CXX20 bool check_X()
+{
+    bool dtor_called = false;
+    X x(dtor_called);
+    optional<X> opt(x);
+    assert(dtor_called == false);
+    auto &v = opt.emplace({1, 2}, dtor_called);
+    static_assert( std::is_same_v<X&, decltype(v)>, "" );
+    assert(dtor_called);
+    assert(*opt == X({1, 2}, dtor_called));
+    assert(&v == &*opt);
+    return true;
+}
+
+TEST_CONSTEXPR_CXX20 bool check_Y()
+{
+    optional<Y> opt;
+    auto &v = opt.emplace({1, 2});
+    static_assert( std::is_same_v<Y&, decltype(v)>, "" );
+    assert(static_cast<bool>(opt) == true);
+    assert(*opt == Y({1, 2}));
+    assert(&v == &*opt);
+    return true;
+}
+
 int run_test()
 {
     {
-        X x;
-        optional<X> opt(x);
-        assert(X::dtor_called == false);
-        auto &v = opt.emplace({1, 2});
-        static_assert( std::is_same_v<X&, decltype(v)>, "" );
-        assert(X::dtor_called == true);
-        assert(*opt == X({1, 2}));
-        assert(&v == &*opt);
+        check_X();
+#if TEST_STD_VER > 17
+        static_assert(check_X());
+#endif
     }
     {
         optional<std::vector<int>> opt;
@@ -2090,12 +2929,10 @@ int run_test()
         assert(&v == &*opt);
     }
     {
-        optional<Y> opt;
-        auto &v = opt.emplace({1, 2});
-        static_assert( std::is_same_v<Y&, decltype(v)>, "" );
-        assert(static_cast<bool>(opt) == true);
-        assert(*opt == Y({1, 2}));
-        assert(&v == &*opt);
+        check_Y();
+#if TEST_STD_VER > 17
+        static_assert(check_Y());
+#endif
     }
 #ifndef TEST_HAS_NO_EXCEPTIONS
     {
@@ -2107,7 +2944,7 @@ int run_test()
             assert(Z::dtor_called == false);
             auto &v = opt.emplace({1, 2});
             static_assert( std::is_same_v<Z&, decltype(v)>, "" );
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -2132,11 +2969,12 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
-// optional<T>& operator=(optional<T>&& rhs)
+// constexpr optional<T>& operator=(optional<T>&& rhs)
 //     noexcept(is_nothrow_move_assignable<T>::value &&
-//              is_nothrow_move_constructible<T>::value); // constexpr in C++20
+//              is_nothrow_move_constructible<T>::value);
 
 #include <optional>
 #include <cassert>
@@ -2240,19 +3078,15 @@ int run_test()
     }
     {
         using O = optional<int>;
-#if TEST_STD_VER > 17
-        LIBCPP_STATIC_ASSERT(assign_empty(O{42}), "");
-        LIBCPP_STATIC_ASSERT(assign_value(O{42}), "");
-#endif
+        static_assert(assign_empty(O{42}));
+        static_assert(assign_value(O{42}));
         assert(assign_empty(O{42}));
         assert(assign_value(O{42}));
     }
     {
         using O = optional<TrivialTestTypes::TestType>;
-#if TEST_STD_VER > 17
-        LIBCPP_STATIC_ASSERT(assign_empty(O{42}), "");
-        LIBCPP_STATIC_ASSERT(assign_value(O{42}), "");
-#endif
+        static_assert(assign_empty(O{42}));
+        static_assert(assign_value(O{42}));
         assert(assign_empty(O{42}));
         assert(assign_value(O{42}));
     }
@@ -2269,7 +3103,7 @@ int run_test()
         {
             X::throw_now = true;
             opt = std::move(opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -2290,7 +3124,7 @@ int run_test()
         {
             X::throw_now = true;
             opt = std::move(opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -2344,6 +3178,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // optional<T>& operator=(nullopt_t) noexcept;
@@ -2360,8 +3195,21 @@ using std::optional;
 using std::nullopt_t;
 using std::nullopt;
 
-int run_test()
+TEST_CONSTEXPR_CXX20 bool test()
 {
+    enum class State { inactive, constructed, destroyed };
+    State state = State::inactive;
+
+    struct StateTracker {
+      TEST_CONSTEXPR_CXX20 StateTracker(State& s)
+      : state_(&s)
+      {
+        s = State::constructed;
+      }
+      TEST_CONSTEXPR_CXX20 ~StateTracker() { *state_ = State::destroyed; }
+
+      State* state_;
+    };
     {
         optional<int> opt;
         static_assert(noexcept(opt = nullopt) == true, "");
@@ -2373,6 +3221,29 @@ int run_test()
         opt = nullopt;
         assert(static_cast<bool>(opt) == false);
     }
+    {
+        optional<StateTracker> opt;
+        opt = nullopt;
+        assert(state == State::inactive);
+        assert(static_cast<bool>(opt) == false);
+    }
+    {
+        optional<StateTracker> opt(state);
+        assert(state == State::constructed);
+        opt = nullopt;
+        assert(state == State::destroyed);
+        assert(static_cast<bool>(opt) == false);
+    }
+    return true;
+}
+
+
+int run_test()
+{
+#if TEST_STD_VER > 17
+    static_assert(test());
+#endif
+    test();
     using TT = TestTypes::TestType;
     TT::reset();
     {
@@ -2416,6 +3287,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // From LWG2451:
@@ -2423,9 +3295,11 @@ int run_test()
 // optional<T>& operator=(optional<U>&& rhs);
 
 #include <optional>
-#include <type_traits>
-#include <memory>
+
+#include <array>
 #include <cassert>
+#include <memory>
+#include <type_traits>
 
 #include "test_macros.h"
 #include "archetypes.h"
@@ -2461,7 +3335,7 @@ struct Y2
     Y2& operator=(const int&) { return *this; }
 };
 
-class B {};
+struct B { virtual ~B() = default; };
 class D : public B {};
 
 
@@ -2611,42 +3485,109 @@ void test_ambiguous_assign() {
 }
 
 
+TEST_CONSTEXPR_CXX20 bool test()
+{
+    {
+        optional<int> opt;
+        optional<short> opt2;
+        opt = std::move(opt2);
+        assert(static_cast<bool>(opt2) == false);
+        assert(static_cast<bool>(opt) == static_cast<bool>(opt2));
+    }
+    {
+        optional<int> opt;
+        optional<short> opt2(short{2});
+        opt = std::move(opt2);
+        assert(static_cast<bool>(opt2) == true);
+        assert(*opt2 == 2);
+        assert(static_cast<bool>(opt) == static_cast<bool>(opt2));
+        assert(*opt == *opt2);
+    }
+    {
+        optional<int> opt(3);
+        optional<short> opt2;
+        opt = std::move(opt2);
+        assert(static_cast<bool>(opt2) == false);
+        assert(static_cast<bool>(opt) == static_cast<bool>(opt2));
+    }
+    {
+        optional<int> opt(3);
+        optional<short> opt2(short{2});
+        opt = std::move(opt2);
+        assert(static_cast<bool>(opt2) == true);
+        assert(*opt2 == 2);
+        assert(static_cast<bool>(opt) == static_cast<bool>(opt2));
+        assert(*opt == *opt2);
+    }
+
+    enum class state_t { inactive, constructed, copy_assigned, move_assigned };
+    class StateTracker {
+    public:
+      constexpr StateTracker(state_t& s)
+      : state_(&s)
+      {
+        *state_ = state_t::constructed;
+      }
+
+      StateTracker(StateTracker&&) = default;
+      StateTracker(StateTracker const&) = default;
+
+      constexpr StateTracker& operator=(StateTracker&& other) noexcept
+      {
+        *state_ = state_t::inactive;
+        state_ = other.state_;
+        *state_ = state_t::move_assigned;
+        other.state_ = nullptr;
+        return *this;
+      }
+
+      constexpr StateTracker& operator=(StateTracker const& other) noexcept
+      {
+        *state_ = state_t::inactive;
+        state_ = other.state_;
+        *state_ = state_t::copy_assigned;
+        return *this;
+      }
+    private:
+      state_t* state_;
+    };
+    {
+      auto state = std::array{state_t::inactive, state_t::inactive};
+      auto opt1 = std::optional<StateTracker>(state[0]);
+      assert(state[0] == state_t::constructed);
+
+      auto opt2 = std::optional<StateTracker>(state[1]);
+      assert(state[1] == state_t::constructed);
+
+      opt1 = std::move(opt2);
+      assert(state[0] == state_t::inactive);
+      assert(state[1] == state_t::move_assigned);
+    }
+    {
+      auto state = std::array{state_t::inactive, state_t::inactive};
+      auto opt1 = std::optional<StateTracker>(state[0]);
+      assert(state[0] == state_t::constructed);
+
+      auto opt2 = std::optional<StateTracker>(state[1]);
+      assert(state[1] == state_t::constructed);
+
+      opt1 = opt2;
+      assert(state[0] == state_t::inactive);
+      assert(state[1] == state_t::copy_assigned);
+    }
+
+    return true;
+}
+
+
 int run_test()
 {
+#if TEST_STD_VER > 17
+    static_assert(test());
+#endif
     test_with_test_type();
     test_ambiguous_assign();
-    {
-        optional<int> opt;
-        optional<short> opt2;
-        opt = std::move(opt2);
-        assert(static_cast<bool>(opt2) == false);
-        assert(static_cast<bool>(opt) == static_cast<bool>(opt2));
-    }
-    {
-        optional<int> opt;
-        optional<short> opt2(short{2});
-        opt = std::move(opt2);
-        assert(static_cast<bool>(opt2) == true);
-        assert(*opt2 == 2);
-        assert(static_cast<bool>(opt) == static_cast<bool>(opt2));
-        assert(*opt == *opt2);
-    }
-    {
-        optional<int> opt(3);
-        optional<short> opt2;
-        opt = std::move(opt2);
-        assert(static_cast<bool>(opt2) == false);
-        assert(static_cast<bool>(opt) == static_cast<bool>(opt2));
-    }
-    {
-        optional<int> opt(3);
-        optional<short> opt2(short{2});
-        opt = std::move(opt2);
-        assert(static_cast<bool>(opt2) == true);
-        assert(*opt2 == 2);
-        assert(static_cast<bool>(opt) == static_cast<bool>(opt2));
-        assert(*opt == *opt2);
-    }
+    test();
     {
         optional<std::unique_ptr<B>> opt;
         optional<std::unique_ptr<D>> other(new D());
@@ -2665,7 +3606,7 @@ int run_test()
         {
             X::throw_now = true;
             opt = std::move(opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -2689,6 +3630,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class U>
@@ -2704,7 +3646,7 @@ namespace ctor::const_optional_U {
 using std::optional;
 
 template <class T, class U>
-void
+TEST_CONSTEXPR_CXX20 void
 test(const optional<U>& rhs, bool is_going_to_throw = false)
 {
     bool rhs_engaged = static_cast<bool>(rhs);
@@ -2734,17 +3676,17 @@ class X
 {
     int i_;
 public:
-    X(int i) : i_(i) {}
-    X(const X& x) : i_(x.i_) {}
-    ~X() {i_ = 0;}
-    friend bool operator==(const X& x, const X& y) {return x.i_ == y.i_;}
+    constexpr X(int i) : i_(i) {}
+    constexpr X(const X& x) : i_(x.i_) {}
+    TEST_CONSTEXPR_CXX20 ~X() {i_ = 0;}
+    friend constexpr bool operator==(const X& x, const X& y) {return x.i_ == y.i_;}
 };
 
 class Y
 {
     int i_;
 public:
-    Y(int i) : i_(i) {}
+    constexpr Y(int i) : i_(i) {}
 
     friend constexpr bool operator==(const Y& x, const Y& y) {return x.i_ == y.i_;}
 };
@@ -2757,48 +3699,33 @@ class Z
 public:
     Z(int i) : i_(i) {TEST_THROW(6);}
 
-    friend constexpr bool operator==(const Z& x, const Z& y) {return x.i_ == y.i_;}
+    friend bool operator==(const Z& x, const Z& y) {return x.i_ == y.i_;}
 };
 
+template<class T, class U>
+constexpr bool test_all()
+{
+  {
+    optional<U> rhs;
+    test<T>(rhs);
+  }
+  {
+    optional<U> rhs(U{3});
+    test<T>(rhs);
+  }
+  return true;
+}
 
 int run_test()
 {
-    {
-        typedef short U;
-        typedef int T;
-        optional<U> rhs;
-        test<T>(rhs);
-    }
-    {
-        typedef short U;
-        typedef int T;
-        optional<U> rhs(U{3});
-        test<T>(rhs);
-    }
-    {
-        typedef X T;
-        typedef int U;
-        optional<U> rhs;
-        test<T>(rhs);
-    }
-    {
-        typedef X T;
-        typedef int U;
-        optional<U> rhs(U{3});
-        test<T>(rhs);
-    }
-    {
-        typedef Y T;
-        typedef int U;
-        optional<U> rhs;
-        test<T>(rhs);
-    }
-    {
-        typedef Y T;
-        typedef int U;
-        optional<U> rhs(U{3});
-        test<T>(rhs);
-    }
+    test_all<int, short>();
+    test_all<X, int>();
+    test_all<Y, int>();
+#if TEST_STD_VER > 17
+    static_assert(test_all<int, short>());
+    static_assert(test_all<X, int>());
+    static_assert(test_all<Y, int>());
+#endif
     {
         typedef Z T;
         typedef int U;
@@ -2829,7 +3756,6 @@ int run_test()
 //===----------------------------------------------------------------------===//
 //
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
 
 // <optional>
 
@@ -2940,7 +3866,7 @@ int run_test()
         {
             const T t(3);
             optional<T> opt(t);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -2962,6 +3888,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -3011,7 +3938,7 @@ void test_throwing_ctor() {
     try
     {
         optional<Z> lhs(rhs);
-        abort();
+        assert(false);
     }
     catch (int i)
     {
@@ -3127,6 +4054,15 @@ int run_test()
         static_assert( *o2 == 4, "" );
     }
 
+    // LWG3836 https://wg21.link/LWG3836
+    // std::optional<bool> conversion constructor optional(const optional<U>&)
+    // should take precedence over optional(U&&) with operator bool
+    {
+        std::optional<bool> o1(false);
+        std::optional<bool> o2(o1);
+        assert(!o2.value());
+    }
+
   return 0;
 }
 } // namespace ctor::copy
@@ -3142,13 +4078,10 @@ int run_test()
 //===----------------------------------------------------------------------===//
 
 // <optional>
-// Clang 5 will generate bad implicit deduction guides
-//  Specifically, for the copy constructor.
 
 
 // template<class T>
 //   optional(T) -> optional<T>;
-
 
 #include <optional>
 #include <cassert>
@@ -3164,7 +4097,7 @@ int run_test()
     {
 //  optional(T)
     std::optional opt(5);
-    static_assert(std::is_same_v<decltype(opt), std::optional<int>>, "");
+    ASSERT_SAME_TYPE(decltype(opt), std::optional<int>);
     assert(static_cast<bool>(opt));
     assert(*opt == 5);
     }
@@ -3172,8 +4105,35 @@ int run_test()
     {
 //  optional(T)
     std::optional opt(A{});
-    static_assert(std::is_same_v<decltype(opt), std::optional<A>>, "");
+    ASSERT_SAME_TYPE(decltype(opt), std::optional<A>);
     assert(static_cast<bool>(opt));
+    }
+
+    {
+//  optional(const T&);
+    const int& source = 5;
+    std::optional opt(source);
+    ASSERT_SAME_TYPE(decltype(opt), std::optional<int>);
+    assert(static_cast<bool>(opt));
+    assert(*opt == 5);
+    }
+
+    {
+//  optional(T*);
+    const int* source = nullptr;
+    std::optional opt(source);
+    ASSERT_SAME_TYPE(decltype(opt), std::optional<const int*>);
+    assert(static_cast<bool>(opt));
+    assert(*opt == nullptr);
+    }
+
+    {
+//  optional(T[]);
+    int source[] = {1, 2, 3};
+    std::optional opt(source);
+    ASSERT_SAME_TYPE(decltype(opt), std::optional<int*>);
+    assert(static_cast<bool>(opt));
+    assert((*opt)[0] == 1);
     }
 
 //  Test the implicit deduction guides
@@ -3181,7 +4141,7 @@ int run_test()
 //  optional(optional);
     std::optional<char> source('A');
     std::optional opt(source);
-    static_assert(std::is_same_v<decltype(opt), std::optional<char>>, "");
+    ASSERT_SAME_TYPE(decltype(opt), std::optional<char>);
     assert(static_cast<bool>(opt) == static_cast<bool>(source));
     assert(*opt == *source);
     }
@@ -3199,6 +4159,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -3286,6 +4247,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // constexpr optional(in_place_t);
@@ -3331,6 +4293,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class U>
@@ -3346,7 +4309,7 @@ namespace ctor::explicit_const_optional_U {
 using std::optional;
 
 template <class T, class U>
-void
+TEST_CONSTEXPR_CXX20 void
 test(const optional<U>& rhs, bool is_going_to_throw = false)
 {
     static_assert(!(std::is_convertible<const optional<U>&, optional<T>>::value), "");
@@ -3377,17 +4340,17 @@ class X
 {
     int i_;
 public:
-    explicit X(int i) : i_(i) {}
-    X(const X& x) : i_(x.i_) {}
-    ~X() {i_ = 0;}
-    friend bool operator==(const X& x, const X& y) {return x.i_ == y.i_;}
+    constexpr explicit X(int i) : i_(i) {}
+    constexpr X(const X& x) : i_(x.i_) {}
+    TEST_CONSTEXPR_CXX20 ~X() {i_ = 0;}
+    friend constexpr bool operator==(const X& x, const X& y) {return x.i_ == y.i_;}
 };
 
 class Y
 {
     int i_;
 public:
-    explicit Y(int i) : i_(i) {}
+    constexpr explicit Y(int i) : i_(i) {}
 
     friend constexpr bool operator==(const Y& x, const Y& y) {return x.i_ == y.i_;}
 };
@@ -3398,38 +4361,34 @@ class Z
 {
     int i_;
 public:
-    explicit Z(int i) : i_(i) { TEST_THROW(6);}
+    explicit Z(int i) : i_(i) {TEST_THROW(6);}
 
-    friend constexpr bool operator==(const Z& x, const Z& y) {return x.i_ == y.i_;}
+    friend bool operator==(const Z& x, const Z& y) {return x.i_ == y.i_;}
 };
+
+template<class T, class U>
+constexpr bool test_all()
+{
+  {
+    optional<U> rhs;
+    test<T>(rhs);
+  }
+  {
+    optional<U> rhs(3);
+    test<T>(rhs);
+  }
+  return true;
+}
 
 
 int run_test()
 {
-    {
-        typedef X T;
-        typedef int U;
-        optional<U> rhs;
-        test<T>(rhs);
-    }
-    {
-        typedef X T;
-        typedef int U;
-        optional<U> rhs(3);
-        test<T>(rhs);
-    }
-    {
-        typedef Y T;
-        typedef int U;
-        optional<U> rhs;
-        test<T>(rhs);
-    }
-    {
-        typedef Y T;
-        typedef int U;
-        optional<U> rhs(3);
-        test<T>(rhs);
-    }
+    test_all<X, int>();
+    test_all<Y, int>();
+#if TEST_STD_VER > 17
+    static_assert(test_all<X, int>());
+    static_assert(test_all<Y, int>());
+#endif
     {
         typedef Z T;
         typedef int U;
@@ -3457,6 +4416,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class U>
@@ -3472,8 +4432,7 @@ namespace ctor::explicit_optional_U {
 using std::optional;
 
 template <class T, class U>
-void
-test(optional<U>&& rhs, bool is_going_to_throw = false)
+TEST_CONSTEXPR_CXX20 void test(optional<U>&& rhs, bool is_going_to_throw = false)
 {
     static_assert(!(std::is_convertible<optional<U>&&, optional<T>>::value), "");
     bool rhs_engaged = static_cast<bool>(rhs);
@@ -3499,10 +4458,10 @@ class X
 {
     int i_;
 public:
-    explicit X(int i) : i_(i) {}
-    X(X&& x) : i_(std::exchange(x.i_, 0)) {}
-    ~X() {i_ = 0;}
-    friend bool operator==(const X& x, const X& y) {return x.i_ == y.i_;}
+    constexpr explicit X(int i) : i_(i) {}
+    constexpr X(X&& x) : i_(x.i_) { x.i_ = 0; }
+    TEST_CONSTEXPR_CXX20 ~X() {i_ = 0;}
+    friend constexpr bool operator==(const X& x, const X& y) {return x.i_ == y.i_;}
 };
 
 int count = 0;
@@ -3513,7 +4472,7 @@ public:
     explicit Z(int) { TEST_THROW(6); }
 };
 
-int run_test()
+TEST_CONSTEXPR_CXX20 bool test()
 {
     {
         optional<int> rhs;
@@ -3523,6 +4482,16 @@ int run_test()
         optional<int> rhs(3);
         test<X>(std::move(rhs));
     }
+
+    return true;
+}
+
+int run_test()
+{
+#if TEST_STD_VER > 17
+    static_assert(test());
+#endif
+    test();
     {
         optional<int> rhs;
         test<Z>(std::move(rhs));
@@ -3546,6 +4515,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class U, class... Args>
@@ -3554,6 +4524,7 @@ int run_test()
 
 #include <optional>
 #include <type_traits>
+#include <memory>
 #include <vector>
 #include <cassert>
 
@@ -3644,7 +4615,7 @@ int run_test()
         try
         {
             optional<Z> opt(in_place, {3, 1});
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -3667,6 +4638,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 //
+
 
 // <optional>
 
@@ -3797,7 +4769,7 @@ int run_test()
         try
         {
             const optional<Z> opt(in_place, 1);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -3821,7 +4793,6 @@ int run_test()
 //===----------------------------------------------------------------------===//
 
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
 
 // <optional>
 
@@ -3873,7 +4844,7 @@ void test_throwing_ctor() {
     try
     {
         optional<Z> lhs(std::move(rhs));
-        abort();
+        assert(false);
     }
     catch (int i)
     {
@@ -4048,6 +5019,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // constexpr optional(nullopt_t) noexcept;
@@ -4128,15 +5100,17 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class U>
 //   optional(optional<U>&& rhs);
 
+#include <cassert>
+#include <memory>
 #include <optional>
 #include <type_traits>
-#include <memory>
-#include <cassert>
+#include <utility>
 
 #include "test_macros.h"
 
@@ -4144,7 +5118,7 @@ namespace ctor::optional_U {
 using std::optional;
 
 template <class T, class U>
-void
+TEST_CONSTEXPR_CXX20 void
 test(optional<U>&& rhs, bool is_going_to_throw = false)
 {
     bool rhs_engaged = static_cast<bool>(rhs);
@@ -4170,37 +5144,39 @@ class X
 {
     int i_;
 public:
-    X(int i) : i_(i) {}
-    X(X&& x) : i_(std::exchange(x.i_, 0)) {}
-    ~X() {i_ = 0;}
-    friend bool operator==(const X& x, const X& y) {return x.i_ == y.i_;}
+    TEST_CONSTEXPR_CXX20 X(int i) : i_(i) {}
+    TEST_CONSTEXPR_CXX20 X(X&& x) : i_(std::exchange(x.i_, 0)) {}
+    TEST_CONSTEXPR_CXX20 ~X() {i_ = 0;}
+    friend constexpr bool operator==(const X& x, const X& y) {return x.i_ == y.i_;}
 };
-
-int count = 0;
 
 struct Z
 {
     Z(int) { TEST_THROW(6); }
 };
 
-int run_test()
+template<class T, class U>
+TEST_CONSTEXPR_CXX20 bool test_all()
 {
     {
-        optional<short> rhs;
-        test<int>(std::move(rhs));
+        optional<T> rhs;
+        test<U>(std::move(rhs));
     }
     {
-        optional<short> rhs(short{3});
-        test<int>(std::move(rhs));
+        optional<T> rhs(short{3});
+        test<U>(std::move(rhs));
     }
-    {
-        optional<int> rhs;
-        test<X>(std::move(rhs));
-    }
-    {
-        optional<int> rhs(3);
-        test<X>(std::move(rhs));
-    }
+    return true;
+}
+
+int run_test()
+{
+    test_all<short, int>();
+    test_all<int, X>();
+#if TEST_STD_VER > 17
+    static_assert(test_all<short, int>());
+    static_assert(test_all<int, X>());
+#endif
     {
         optional<int> rhs;
         test<Z>(std::move(rhs));
@@ -4227,7 +5203,6 @@ int run_test()
 //===----------------------------------------------------------------------===//
 //
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
 
 // <optional>
 
@@ -4354,16 +5329,11 @@ int run_test()
     }
 #ifndef TEST_HAS_NO_EXCEPTIONS
     {
-        struct Z {
-            Z(int) {}
-            Z(Z&&) {throw 6;}
-        };
-        typedef Z T;
         try
         {
-            T t(3);
-            optional<T> opt(std::move(t));
-            abort();
+            Z z(3);
+            optional<Z> opt(std::move(z));
+            assert(false);
         }
         catch (int i)
         {
@@ -4387,7 +5357,6 @@ int run_test()
 //===----------------------------------------------------------------------===//
 //
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
 
 // <optional>
 
@@ -4479,7 +5448,7 @@ void test_implicit()
         try {
             using T = ImplicitThrow;
             optional<T> t = 42;
-            abort();
+            assert(false);
             ((void)t);
         } catch (int) {
         }
@@ -4520,7 +5489,7 @@ void test_explicit() {
         try {
             using T = ExplicitThrow;
             optional<T> t(42);
-            abort();
+            assert(false);
         } catch (int) {
         }
     }
@@ -4545,6 +5514,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // ~optional();
@@ -4568,6 +5538,8 @@ class X
 public:
     static bool dtor_called;
     X() = default;
+    X(const X&) = default;
+    X& operator=(const X&) = default;
     ~X() {dtor_called = true;}
 };
 
@@ -4579,32 +5551,21 @@ int run_test()
         typedef int T;
         static_assert(std::is_trivially_destructible<T>::value, "");
         static_assert(std::is_trivially_destructible<optional<T>>::value, "");
-        static_assert(std::is_literal_type<optional<T>>::value, "");
     }
     {
         typedef double T;
         static_assert(std::is_trivially_destructible<T>::value, "");
         static_assert(std::is_trivially_destructible<optional<T>>::value, "");
-        static_assert(std::is_literal_type<optional<T>>::value, "");
     }
     {
         typedef PODType T;
         static_assert(std::is_trivially_destructible<T>::value, "");
         static_assert(std::is_trivially_destructible<optional<T>>::value, "");
-        static_assert(std::is_literal_type<optional<T>>::value, "");
     }
     {
         typedef X T;
         static_assert(!std::is_trivially_destructible<T>::value, "");
         static_assert(!std::is_trivially_destructible<optional<T>>::value, "");
-
-#if TEST_STD_VER > 17 && !defined(__clang__) // TRANSITION, LLVM-48286
-        // P2231R1 Completing constexpr In optional And variant
-        static_assert(std::is_literal_type<optional<T>>::value, "");
-#else // ^^^ after P2231R1 / before P2231R1 vvv
-        static_assert(!std::is_literal_type<optional<T>>::value, "");
-#endif // ^^^ before P2231R1 ^^^
-
         {
             X x;
             optional<X> opt{x};
@@ -4628,6 +5589,7 @@ int run_test()
 //===----------------------------------------------------------------------===//
 
 
+
 // <optional>
 
 // void reset() noexcept;
@@ -4644,24 +5606,35 @@ using std::optional;
 struct X
 {
     static bool dtor_called;
+    X() = default;
+    X(const X&) = default;
+    X& operator=(const X&) = default;
     ~X() {dtor_called = true;}
 };
 
 bool X::dtor_called = false;
 
+TEST_CONSTEXPR_CXX20 bool check_reset() {
+  {
+    optional<int> opt;
+    static_assert(noexcept(opt.reset()) == true, "");
+    opt.reset();
+    assert(static_cast<bool>(opt) == false);
+  }
+  {
+    optional<int> opt(3);
+    opt.reset();
+    assert(static_cast<bool>(opt) == false);
+  }
+  return true;
+}
+
 int run_test()
 {
-    {
-        optional<int> opt;
-        static_assert(noexcept(opt.reset()) == true, "");
-        opt.reset();
-        assert(static_cast<bool>(opt) == false);
-    }
-    {
-        optional<int> opt(3);
-        opt.reset();
-        assert(static_cast<bool>(opt) == false);
-    }
+    check_reset();
+#if TEST_STD_VER >= 20
+    static_assert(check_reset());
+#endif
     {
         optional<X> opt;
         static_assert(noexcept(opt.reset()) == true, "");
@@ -4692,6 +5665,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -4735,13 +5709,10 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // constexpr T& optional<T>::operator*() &;
-
-#ifdef _LIBCPP_DEBUG
-#define _LIBCPP_ASSERT(x, m) ((x) ? (void)0 : std::exit(0))
-#endif
 
 #include <optional>
 #include <type_traits>
@@ -4777,22 +5748,23 @@ int run_test()
     {
         optional<X> opt; ((void)opt);
         ASSERT_SAME_TYPE(decltype(*opt), X&);
-        STATIC_ASSERT(noexcept(*opt));
+        LIBCPP_STATIC_ASSERT(noexcept(*opt));
+        // ASSERT_NOT_NOEXCEPT(*opt);
+        // TODO: This assertion fails with GCC because it can see that
+        // (A) operator*() is constexpr, and
+        // (B) there is no path through the function that throws.
+        // It's arguable if this is the correct behavior for the noexcept
+        // operator.
+        // Regardless this function should still be noexcept(false) because
+        // it has a narrow contract.
     }
     {
         optional<X> opt(X{});
         assert((*opt).test() == 4);
     }
     static_assert(test() == 7, "");
-#ifdef _LIBCPP_DEBUG
-    {
-        optional<X> opt;
-        assert((*opt).test() == 3);
-        abort();
-    }
-#endif  // _LIBCPP_DEBUG
 
-  return 0;
+    return 0;
 }
 } // namespace observe::deref
 // -- END: test/std/utilities/optional/optional.object/optional.object.observe/dereference.pass.cpp
@@ -4806,13 +5778,10 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // constexpr const T& optional<T>::operator*() const &;
-
-#ifdef _LIBCPP_DEBUG
-#define _LIBCPP_ASSERT(x, m) ((x) ? (void)0 : std::exit(0))
-#endif
 
 #include <optional>
 #include <type_traits>
@@ -4841,7 +5810,15 @@ int run_test()
     {
         const optional<X> opt; ((void)opt);
         ASSERT_SAME_TYPE(decltype(*opt), X const&);
-        STATIC_ASSERT(noexcept(*opt));
+        LIBCPP_STATIC_ASSERT(noexcept(*opt));
+        // ASSERT_NOT_NOEXCEPT(*opt);
+        // TODO: This assertion fails with GCC because it can see that
+        // (A) operator*() is constexpr, and
+        // (B) there is no path through the function that throws.
+        // It's arguable if this is the correct behavior for the noexcept
+        // operator.
+        // Regardless this function should still be noexcept(false) because
+        // it has a narrow contract.
     }
     {
         constexpr optional<X> opt(X{});
@@ -4851,15 +5828,8 @@ int run_test()
         constexpr optional<Y> opt(Y{});
         assert((*opt).test() == 2);
     }
-#ifdef _LIBCPP_DEBUG
-    {
-        const optional<X> opt;
-        assert((*opt).test() == 3);
-        abort();
-    }
-#endif  // _LIBCPP_DEBUG
 
-  return 0;
+    return 0;
 }
 } // namespace observe::deref_const
 // -- END: test/std/utilities/optional/optional.object/optional.object.observe/dereference_const.pass.cpp
@@ -4873,13 +5843,10 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // constexpr T&& optional<T>::operator*() const &&;
-
-#ifdef _LIBCPP_DEBUG
-#define _LIBCPP_ASSERT(x, m) ((x) ? (void)0 : std::exit(0))
-#endif
 
 #include <optional>
 #include <type_traits>
@@ -4908,7 +5875,15 @@ int run_test()
     {
         const optional<X> opt; ((void)opt);
         ASSERT_SAME_TYPE(decltype(*std::move(opt)), X const &&);
-        STATIC_ASSERT(noexcept(*std::move(opt)));
+        LIBCPP_STATIC_ASSERT(noexcept(*opt));
+        // ASSERT_NOT_NOEXCEPT(*std::move(opt));
+        // TODO: This assertion fails with GCC because it can see that
+        // (A) operator*() is constexpr, and
+        // (B) there is no path through the function that throws.
+        // It's arguable if this is the correct behavior for the noexcept
+        // operator.
+        // Regardless this function should still be noexcept(false) because
+        // it has a narrow contract.
     }
     {
         constexpr optional<X> opt(X{});
@@ -4918,15 +5893,8 @@ int run_test()
         constexpr optional<Y> opt(Y{});
         assert((*std::move(opt)).test() == 2);
     }
-#ifdef _LIBCPP_DEBUG
-    {
-        optional<X> opt;
-        assert((*std::move(opt)).test() == 5);
-        abort();
-    }
-#endif  // _LIBCPP_DEBUG
 
-  return 0;
+    return 0;
 }
 } // namespace observe::deref_const_rvalue
 // -- END: test/std/utilities/optional/optional.object/optional.object.observe/dereference_const_rvalue.pass.cpp
@@ -4940,13 +5908,10 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // constexpr T&& optional<T>::operator*() &&;
-
-#ifdef _LIBCPP_DEBUG
-#define _LIBCPP_ASSERT(x, m) ((x) ? (void)0 : std::exit(0))
-#endif
 
 #include <optional>
 #include <type_traits>
@@ -4982,22 +5947,23 @@ int run_test()
     {
         optional<X> opt; ((void)opt);
         ASSERT_SAME_TYPE(decltype(*std::move(opt)), X&&);
-        STATIC_ASSERT(noexcept(*std::move(opt)));
+        LIBCPP_STATIC_ASSERT(noexcept(*opt));
+        // ASSERT_NOT_NOEXCEPT(*std::move(opt));
+        // TODO: This assertion fails with GCC because it can see that
+        // (A) operator*() is constexpr, and
+        // (B) there is no path through the function that throws.
+        // It's arguable if this is the correct behavior for the noexcept
+        // operator.
+        // Regardless this function should still be noexcept(false) because
+        // it has a narrow contract.
     }
     {
         optional<X> opt(X{});
         assert((*std::move(opt)).test() == 6);
     }
     static_assert(test() == 7, "");
-#ifdef _LIBCPP_DEBUG
-    {
-        optional<X> opt;
-        assert((*std::move(opt)).test() == 3);
-        abort();
-    }
-#endif  // _LIBCPP_DEBUG
 
-  return 0;
+    return 0;
 }
 } // namespace observe::deref_rvalue
 // -- END: test/std/utilities/optional/optional.object/optional.object.observe/dereference_rvalue.pass.cpp
@@ -5010,6 +5976,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -5053,13 +6020,10 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // constexpr T* optional<T>::operator->();
-
-#ifdef _LIBCPP_DEBUG
-#define _LIBCPP_ASSERT(x, m) ((x) ? (void)0 : std::exit(0))
-#endif
 
 #include <optional>
 #include <type_traits>
@@ -5092,7 +6056,14 @@ int run_test()
     {
         std::optional<X> opt; ((void)opt);
         ASSERT_SAME_TYPE(decltype(opt.operator->()), X*);
-        STATIC_ASSERT(noexcept(opt.operator->()));
+        // ASSERT_NOT_NOEXCEPT(opt.operator->());
+        // TODO: This assertion fails with GCC because it can see that
+        // (A) operator->() is constexpr, and
+        // (B) there is no path through the function that throws.
+        // It's arguable if this is the correct behavior for the noexcept
+        // operator.
+        // Regardless this function should still be noexcept(false) because
+        // it has a narrow contract.
     }
     {
         optional<X> opt(X{});
@@ -5101,15 +6072,8 @@ int run_test()
     {
         static_assert(test() == 3, "");
     }
-#ifdef _LIBCPP_DEBUG
-    {
-        optional<X> opt;
-        assert(opt->test() == 3);
-        abort();
-    }
-#endif  // _LIBCPP_DEBUG
 
-  return 0;
+    return 0;
 }
 } // namespace observe::op_arrow
 // -- END: test/std/utilities/optional/optional.object/optional.object.observe/op_arrow.pass.cpp
@@ -5123,13 +6087,10 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // constexpr const T* optional<T>::operator->() const;
-
-#ifdef _LIBCPP_DEBUG
-#define _LIBCPP_ASSERT(x, m) ((x) ? (void)0 : std::exit(0))
-#endif
 
 #include <optional>
 #include <type_traits>
@@ -5161,7 +6122,14 @@ int run_test()
     {
         const std::optional<X> opt; ((void)opt);
         ASSERT_SAME_TYPE(decltype(opt.operator->()), X const*);
-        STATIC_ASSERT(noexcept(opt.operator->()));
+        // ASSERT_NOT_NOEXCEPT(opt.operator->());
+        // TODO: This assertion fails with GCC because it can see that
+        // (A) operator->() is constexpr, and
+        // (B) there is no path through the function that throws.
+        // It's arguable if this is the correct behavior for the noexcept
+        // operator.
+        // Regardless this function should still be noexcept(false) because
+        // it has a narrow contract.
     }
     {
         constexpr optional<X> opt(X{});
@@ -5175,15 +6143,8 @@ int run_test()
         constexpr optional<Z> opt(Z{});
         static_assert(opt->test() == 1, "");
     }
-#ifdef _LIBCPP_DEBUG
-    {
-        const optional<X> opt;
-        assert(opt->test() == 3);
-        abort();
-    }
-#endif  // _LIBCPP_DEBUG
 
-  return 0;
+    return 0;
 }
 } // namespace observe::op_arrow_const
 // -- END: test/std/utilities/optional/optional.object/optional.object.observe/op_arrow_const.pass.cpp
@@ -5198,7 +6159,6 @@ int run_test()
 //===----------------------------------------------------------------------===//
 
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
 
 // <optional>
 
@@ -5255,7 +6215,7 @@ int run_test()
         try
         {
             (void)opt.value();
-            abort();
+            assert(false);
         }
         catch (const bad_optional_access&)
         {
@@ -5279,7 +6239,6 @@ int run_test()
 //===----------------------------------------------------------------------===//
 
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
 
 // <optional>
 
@@ -5328,7 +6287,7 @@ int run_test()
         try
         {
             (void)opt.value();
-            abort();
+            assert(false);
         }
         catch (const bad_optional_access&)
         {
@@ -5351,7 +6310,6 @@ int run_test()
 //===----------------------------------------------------------------------===//
 
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
 
 // <optional>
 
@@ -5400,7 +6358,7 @@ int run_test()
         try
         {
             (void)std::move(opt).value();
-            abort();
+            assert(false);
         }
         catch (const bad_optional_access&)
         {
@@ -5421,6 +6379,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -5500,6 +6459,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -5585,9 +6545,8 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
-// <optional>
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
+// <optional>
 
 // constexpr T& optional<T>::value() &&;
 
@@ -5641,7 +6600,7 @@ int run_test()
         try
         {
             (void)std::move(opt).value();
-            abort();
+            assert(false);
         }
         catch (const bad_optional_access&)
         {
@@ -5663,6 +6622,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -5721,57 +6681,78 @@ public:
     friend void swap(Z&, Z&) {TEST_THROW(6);}
 };
 
+class W
+{
+    int i_;
+public:
+    constexpr W(int i) : i_(i) {}
+
+    friend constexpr bool operator==(const W& x, const W& y) {return x.i_ == y.i_;}
+    friend TEST_CONSTEXPR_CXX20 void swap(W& x, W& y) noexcept {std::swap(x.i_, y.i_);}
+};
+
+template<class T>
+TEST_CONSTEXPR_CXX20 bool check_swap()
+{
+    {
+        optional<T> opt1;
+        optional<T> opt2;
+        static_assert(noexcept(opt1.swap(opt2)) == true);
+        assert(static_cast<bool>(opt1) == false);
+        assert(static_cast<bool>(opt2) == false);
+        opt1.swap(opt2);
+        assert(static_cast<bool>(opt1) == false);
+        assert(static_cast<bool>(opt2) == false);
+    }
+    {
+        optional<T> opt1(1);
+        optional<T> opt2;
+        static_assert(noexcept(opt1.swap(opt2)) == true);
+        assert(static_cast<bool>(opt1) == true);
+        assert(*opt1 == 1);
+        assert(static_cast<bool>(opt2) == false);
+        opt1.swap(opt2);
+        assert(static_cast<bool>(opt1) == false);
+        assert(static_cast<bool>(opt2) == true);
+        assert(*opt2 == 1);
+    }
+    {
+        optional<T> opt1;
+        optional<T> opt2(2);
+        static_assert(noexcept(opt1.swap(opt2)) == true, "");
+        assert(static_cast<bool>(opt1) == false);
+        assert(static_cast<bool>(opt2) == true);
+        assert(*opt2 == 2);
+        opt1.swap(opt2);
+        assert(static_cast<bool>(opt1) == true);
+        assert(*opt1 == 2);
+        assert(static_cast<bool>(opt2) == false);
+    }
+    {
+        optional<T> opt1(1);
+        optional<T> opt2(2);
+        static_assert(noexcept(opt1.swap(opt2)) == true, "");
+        assert(static_cast<bool>(opt1) == true);
+        assert(*opt1 == 1);
+        assert(static_cast<bool>(opt2) == true);
+        assert(*opt2 == 2);
+        opt1.swap(opt2);
+        assert(static_cast<bool>(opt1) == true);
+        assert(*opt1 == 2);
+        assert(static_cast<bool>(opt2) == true);
+        assert(*opt2 == 1);
+    }
+    return true;
+}
 
 int run_test()
 {
-    {
-        optional<int> opt1;
-        optional<int> opt2;
-        static_assert(noexcept(opt1.swap(opt2)) == true, "");
-        assert(static_cast<bool>(opt1) == false);
-        assert(static_cast<bool>(opt2) == false);
-        opt1.swap(opt2);
-        assert(static_cast<bool>(opt1) == false);
-        assert(static_cast<bool>(opt2) == false);
-    }
-    {
-        optional<int> opt1(1);
-        optional<int> opt2;
-        static_assert(noexcept(opt1.swap(opt2)) == true, "");
-        assert(static_cast<bool>(opt1) == true);
-        assert(*opt1 == 1);
-        assert(static_cast<bool>(opt2) == false);
-        opt1.swap(opt2);
-        assert(static_cast<bool>(opt1) == false);
-        assert(static_cast<bool>(opt2) == true);
-        assert(*opt2 == 1);
-    }
-    {
-        optional<int> opt1;
-        optional<int> opt2(2);
-        static_assert(noexcept(opt1.swap(opt2)) == true, "");
-        assert(static_cast<bool>(opt1) == false);
-        assert(static_cast<bool>(opt2) == true);
-        assert(*opt2 == 2);
-        opt1.swap(opt2);
-        assert(static_cast<bool>(opt1) == true);
-        assert(*opt1 == 2);
-        assert(static_cast<bool>(opt2) == false);
-    }
-    {
-        optional<int> opt1(1);
-        optional<int> opt2(2);
-        static_assert(noexcept(opt1.swap(opt2)) == true, "");
-        assert(static_cast<bool>(opt1) == true);
-        assert(*opt1 == 1);
-        assert(static_cast<bool>(opt2) == true);
-        assert(*opt2 == 2);
-        opt1.swap(opt2);
-        assert(static_cast<bool>(opt1) == true);
-        assert(*opt1 == 2);
-        assert(static_cast<bool>(opt2) == true);
-        assert(*opt2 == 1);
-    }
+    check_swap<int>();
+    check_swap<W>();
+#if TEST_STD_VER > 17
+    static_assert(check_swap<int>());
+    static_assert(check_swap<W>());
+#endif
     {
         optional<X> opt1;
         optional<X> opt2;
@@ -5904,7 +6885,7 @@ int run_test()
         try
         {
             opt1.swap(opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -5925,7 +6906,7 @@ int run_test()
         try
         {
             opt1.swap(opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -5948,7 +6929,7 @@ int run_test()
         try
         {
             opt1.swap(opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -5974,6 +6955,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 
 // <optional>
@@ -6043,6 +7025,7 @@ int run_test() {
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 
 // <optional>
@@ -6147,6 +7130,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T>
@@ -6183,6 +7167,86 @@ int run_test()
 } // namespace types
 // -- END: test/std/utilities/optional/optional.object/types.pass.cpp
 
+// -- BEGIN: test/std/utilities/optional/optional.relops/compare.three_way.pass.cpp
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+
+
+// <optional>
+
+// [optional.relops], relational operators
+
+// template<class T, three_way_comparable_with<T> U>
+//   constexpr compare_three_way_result_t<T, U>
+//     operator<=>(const optional<T>&, const optional<U>&);
+
+#include <cassert>
+#include <compare>
+#include <optional>
+
+#include "test_comparisons.h"
+
+namespace relops::three_way {
+#if _HAS_CXX20
+constexpr bool test() {
+  {
+    std::optional<int> op1;
+    std::optional<int> op2;
+
+    assert((op1 <=> op2) == std::strong_ordering::equal);
+    assert(testOrder(op1, op2, std::strong_ordering::equal));
+  }
+  {
+    std::optional<int> op1{3};
+    std::optional<int> op2{3};
+    assert((op1 <=> op1) == std::strong_ordering::equal);
+    assert(testOrder(op1, op1, std::strong_ordering::equal));
+    assert((op1 <=> op2) == std::strong_ordering::equal);
+    assert(testOrder(op1, op2, std::strong_ordering::equal));
+    assert((op2 <=> op1) == std::strong_ordering::equal);
+    assert(testOrder(op2, op1, std::strong_ordering::equal));
+  }
+  {
+    std::optional<int> op;
+    std::optional<int> op1{2};
+    std::optional<int> op2{3};
+    assert((op <=> op2) == std::strong_ordering::less);
+    assert(testOrder(op, op2, std::strong_ordering::less));
+    assert((op1 <=> op2) == std::strong_ordering::less);
+    assert(testOrder(op1, op2, std::strong_ordering::less));
+  }
+  {
+    std::optional<int> op;
+    std::optional<int> op1{3};
+    std::optional<int> op2{2};
+    assert((op1 <=> op) == std::strong_ordering::greater);
+    assert(testOrder(op1, op, std::strong_ordering::greater));
+    assert((op1 <=> op2) == std::strong_ordering::greater);
+    assert(testOrder(op1, op2, std::strong_ordering::greater));
+  }
+
+  return true;
+}
+
+int run_test() {
+  assert(test());
+  static_assert(test());
+  return 0;
+}
+#else // ^^^ _HAS_CXX20 / !_HAS_CXX20 vvv
+int run_test() {
+    return 0;
+}
+#endif // ^^^ !_HAS_CXX20 ^^^
+} // namespace relops::three_way
+// -- END: test/std/utilities/optional/optional.relops/compare.three_way.pass.cpp
+
 // -- BEGIN: test/std/utilities/optional/optional.relops/equal.pass.cpp
 //===----------------------------------------------------------------------===//
 //
@@ -6191,6 +7255,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -6285,6 +7350,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T, class U> constexpr bool operator>= (const optional<T>& x, const optional<U>& y);
@@ -6375,6 +7441,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T, class U> constexpr bool operator> (const optional<T>& x, const optional<U>& y);
@@ -6462,6 +7529,7 @@ int run_test() {
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -6553,6 +7621,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T, class U> constexpr bool operator< (const optional<T>& x, const optional<U>& y);
@@ -6640,6 +7709,7 @@ int run_test() {
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -6734,7 +7804,7 @@ int run_test() {
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: dylib-has-no-bad_optional_access && !libcpp-no-exceptions
+
 
 // <optional>
 //
@@ -6751,29 +7821,32 @@ int run_test() {
 namespace nonmembers::make_optional {
 int run_test()
 {
-    using std::optional;
-    using std::make_optional;
     {
-        int arr[10]; ((void)arr);
-        ASSERT_SAME_TYPE(decltype(make_optional(arr)), optional<int*>);
+        int arr[10];
+        auto opt = std::make_optional(arr);
+        ASSERT_SAME_TYPE(decltype(opt), std::optional<int*>);
+        assert(*opt == arr);
     }
     {
-        constexpr auto opt = make_optional(2);
-        ASSERT_SAME_TYPE(decltype(opt), const optional<int>);
+        constexpr auto opt = std::make_optional(2);
+        ASSERT_SAME_TYPE(decltype(opt), const std::optional<int>);
         static_assert(opt.value() == 2);
     }
     {
-        optional<int> opt = make_optional(2);
+        auto opt = std::make_optional(2);
+        ASSERT_SAME_TYPE(decltype(opt), std::optional<int>);
         assert(*opt == 2);
     }
     {
-        std::string s("123");
-        optional<std::string> opt = make_optional(s);
-        assert(*opt == s);
+        const std::string s = "123";
+        auto opt = std::make_optional(s);
+        ASSERT_SAME_TYPE(decltype(opt), std::optional<std::string>);
+        assert(*opt == "123");
     }
     {
-        std::unique_ptr<int> s(new int(3));
-        optional<std::unique_ptr<int>> opt = make_optional(std::move(s));
+        std::unique_ptr<int> s = std::make_unique<int>(3);
+        auto opt = std::make_optional(std::move(s));
+        ASSERT_SAME_TYPE(decltype(opt), std::optional<std::unique_ptr<int>>);
         assert(**opt == 3);
         assert(s == nullptr);
     }
@@ -6792,6 +7865,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T, class... Args>
@@ -6807,26 +7881,23 @@ int run_test()
 namespace nonmembers::make_optional_explicit {
 int run_test()
 {
-    using std::optional;
-    using std::make_optional;
-
     {
-        constexpr auto opt = make_optional<int>('a');
-        static_assert(*opt == int('a'), "");
+        constexpr auto opt = std::make_optional<int>('a');
+        static_assert(*opt == int('a'));
     }
     {
-        std::string s("123");
-        auto opt = make_optional<std::string>(s);
-        assert(*opt == s);
+        std::string s = "123";
+        auto opt = std::make_optional<std::string>(s);
+        assert(*opt == "123");
     }
     {
-        std::unique_ptr<int> s(new int(3));
-        auto opt = make_optional<std::unique_ptr<int>>(std::move(s));
+        std::unique_ptr<int> s = std::make_unique<int>(3);
+        auto opt = std::make_optional<std::unique_ptr<int>>(std::move(s));
         assert(**opt == 3);
         assert(s == nullptr);
     }
     {
-        auto opt = make_optional<std::string>(4u, 'X');
+        auto opt = std::make_optional<std::string>(4u, 'X');
         assert(*opt == "XXXX");
     }
 
@@ -6844,15 +7915,16 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // template <class T, class U, class... Args>
 //   constexpr optional<T> make_optional(initializer_list<U> il, Args&&... args);
 
+#include <cassert>
+#include <memory>
 #include <optional>
 #include <string>
-#include <memory>
-#include <cassert>
 
 #include "test_macros.h"
 
@@ -6860,34 +7932,45 @@ namespace nonmembers::make_optional_explicit_init_list {
 struct TestT {
   int x;
   int size;
-  constexpr TestT(std::initializer_list<int> il) : x(*il.begin()), size(static_cast<int>(il.size())) {}
-  constexpr TestT(std::initializer_list<int> il, const int*)
-      : x(*il.begin()), size(static_cast<int>(il.size())) {}
+  int *ptr;
+  constexpr TestT(std::initializer_list<int> il)
+    : x(*il.begin()), size(static_cast<int>(il.size())), ptr(nullptr) {}
+  constexpr TestT(std::initializer_list<int> il, int *p)
+    : x(*il.begin()), size(static_cast<int>(il.size())), ptr(p) {}
 };
+
+constexpr bool test()
+{
+  {
+    auto opt = std::make_optional<TestT>({42, 2, 3});
+    ASSERT_SAME_TYPE(decltype(opt), std::optional<TestT>);
+    assert(opt->x == 42);
+    assert(opt->size == 3);
+    assert(opt->ptr == nullptr);
+  }
+  {
+    int i = 42;
+    auto opt = std::make_optional<TestT>({42, 2, 3}, &i);
+    ASSERT_SAME_TYPE(decltype(opt), std::optional<TestT>);
+    assert(opt->x == 42);
+    assert(opt->size == 3);
+    assert(opt->ptr == &i);
+  }
+  return true;
+}
 
 int run_test()
 {
-    using std::make_optional;
-    {
-        constexpr auto opt = make_optional<TestT>({42, 2, 3});
-        ASSERT_SAME_TYPE(decltype(opt), const std::optional<TestT>);
-        static_assert(opt->x == 42, "");
-        static_assert(opt->size == 3, "");
-    }
-    {
-        constexpr auto opt = make_optional<TestT>({42, 2, 3}, nullptr);
-        static_assert(opt->x == 42, "");
-        static_assert(opt->size == 3, "");
-    }
-    {
-        auto opt = make_optional<std::string>({'1', '2', '3'});
-        assert(*opt == "123");
-    }
-    {
-        auto opt = make_optional<std::string>({'a', 'b', 'c'}, std::allocator<char>{});
-        assert(*opt == "abc");
-    }
-
+  test();
+  static_assert(test());
+  {
+    auto opt = std::make_optional<std::string>({'1', '2', '3'});
+    assert(*opt == "123");
+  }
+  {
+    auto opt = std::make_optional<std::string>({'a', 'b', 'c'}, std::allocator<char>{});
+    assert(*opt == "abc");
+  }
   return 0;
 }
 } // namespace nonmembers::make_optional_explicit_init_list
@@ -6901,6 +7984,7 @@ int run_test()
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 
 // <optional>
 
@@ -7188,7 +8272,7 @@ int run_test()
         try
         {
             swap(opt1, opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -7209,7 +8293,7 @@ int run_test()
         try
         {
             swap(opt1, opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -7232,7 +8316,7 @@ int run_test()
         try
         {
             swap(opt1, opt2);
-            abort();
+            assert(false);
         }
         catch (int i)
         {
@@ -7259,6 +8343,7 @@ int run_test()
 //
 //===----------------------------------------------------------------------===//
 
+
 // <optional>
 
 // #include <initializer_list>
@@ -7267,7 +8352,7 @@ int run_test()
 
 #include "test_macros.h"
 
-namespace init_list {
+namespace optional_includes_initializer_list {
 int run_test()
 {
     using std::optional;
@@ -7277,9 +8362,8 @@ int run_test()
 
   return 0;
 }
-} // namespace init_list
+} // namespace optional_includes_initializer_list
 // -- END: test/std/utilities/optional/optional.syn/optional_includes_initializer_list.pass.cpp
-
 // LLVM SOURCES END
 // clang-format on
 
@@ -7301,21 +8385,21 @@ namespace msvc {
         struct __declspec(empty_bases) many_bases : empty<0>, empty<1>, empty<2>, empty<3> {};
 
         template <class T>
-        inline constexpr bool check_size = sizeof(std::optional<T>) == sizeof(T) + alignof(T);
+        constexpr bool check_size = sizeof(std::optional<T>) == sizeof(T) + alignof(T);
 
-        STATIC_ASSERT(check_size<bool>);
-        STATIC_ASSERT(check_size<char>);
-        STATIC_ASSERT(check_size<unsigned char>);
-        STATIC_ASSERT(check_size<int>);
-        STATIC_ASSERT(check_size<unsigned int>);
-        STATIC_ASSERT(check_size<long>);
-        STATIC_ASSERT(check_size<long long>);
-        STATIC_ASSERT(check_size<float>);
-        STATIC_ASSERT(check_size<double>);
-        STATIC_ASSERT(check_size<void*>);
-        STATIC_ASSERT(check_size<empty<0>>);
-        STATIC_ASSERT(check_size<not_empty>);
-        STATIC_ASSERT(check_size<many_bases>);
+        static_assert(check_size<bool>);
+        static_assert(check_size<char>);
+        static_assert(check_size<unsigned char>);
+        static_assert(check_size<int>);
+        static_assert(check_size<unsigned int>);
+        static_assert(check_size<long>);
+        static_assert(check_size<long long>);
+        static_assert(check_size<float>);
+        static_assert(check_size<double>);
+        static_assert(check_size<void*>);
+        static_assert(check_size<empty<0>>);
+        static_assert(check_size<not_empty>);
+        static_assert(check_size<many_bases>);
     } // namespace size
 
     namespace lwg2842 {
@@ -7329,11 +8413,35 @@ namespace msvc {
         // ConvertibleFromInPlace is not default constructible, so these constructions do not match
         // optional(in_place_t, args...). They will match the converting constructor template if it does not properly
         // reject arguments that decay to std::in_place_t as required by LWG-2842.
-        STATIC_ASSERT(!is_constructible_v<O, in_place_t>);
-        STATIC_ASSERT(!is_constructible_v<O, in_place_t&>);
-        STATIC_ASSERT(!is_constructible_v<O, const in_place_t>);
-        STATIC_ASSERT(!is_constructible_v<O, const in_place_t&>);
+        static_assert(!is_constructible_v<O, in_place_t>);
+        static_assert(!is_constructible_v<O, in_place_t&>);
+        static_assert(!is_constructible_v<O, const in_place_t>);
+        static_assert(!is_constructible_v<O, const in_place_t&>);
     } // namespace lwg2842
+
+    namespace lwg3836 {
+        static_assert(std::is_convertible_v<std::optional<int>, std::optional<bool>>);
+        static_assert(std::is_convertible_v<const std::optional<int>&, std::optional<bool>>);
+
+#if _HAS_CXX20
+#define CONSTEXPR20 constexpr
+#else // ^^^ _HAS_CXX20 / !_HAS_CXX20 vvv
+#define CONSTEXPR20 inline
+#endif // ^^^ !_HAS_CXX20 ^^^
+        CONSTEXPR20 bool run_test() {
+            std::optional<int> oi  = 0;
+            std::optional<bool> ob = oi;
+            assert(!ob.value());
+            assert(!std::optional<bool>{std::optional<int>{0}}.value());
+
+            return true;
+        }
+#undef CONSTEXPR20
+
+#if _HAS_CXX20
+        static_assert(run_test());
+#endif // _HAS_CXX20
+    } // namespace lwg3836
 
     namespace vso406124 {
         // Defend against regression of VSO-406124
@@ -7357,8 +8465,8 @@ namespace msvc {
         // Defend against regression of VSO-508126
         void run_test() {
             struct S {};
-            STATIC_ASSERT(!std::is_copy_constructible_v<volatile S>);
-            STATIC_ASSERT(!std::is_copy_constructible_v<std::optional<volatile S>>);
+            static_assert(!std::is_copy_constructible_v<volatile S>);
+            static_assert(!std::is_copy_constructible_v<std::optional<volatile S>>);
         }
     } // namespace vso508126
 
@@ -7424,6 +8532,92 @@ namespace msvc {
             testMove<const ConstMovable, action::move>();
         }
     } // namespace gh2458
+
+    namespace assign_cv {
+        template <class T>
+        struct TypeIdentityImpl {
+            using type = T;
+        };
+        template <class T>
+        using TypeIdentity = typename TypeIdentityImpl<T>::type;
+
+        struct CvAssignable {
+            CvAssignable()                               = default;
+            CvAssignable(const CvAssignable&)            = default;
+            CvAssignable(CvAssignable&&)                 = default;
+            CvAssignable& operator=(const CvAssignable&) = default;
+            CvAssignable& operator=(CvAssignable&&)      = default;
+
+            template <class T = CvAssignable>
+            CvAssignable(const volatile TypeIdentity<T>&) noexcept {}
+            template <class T = CvAssignable>
+            CvAssignable(const volatile TypeIdentity<T>&&) noexcept {}
+
+            template <class T = CvAssignable>
+            constexpr CvAssignable& operator=(const volatile TypeIdentity<T>&) noexcept {
+                return *this;
+            }
+            template <class T = CvAssignable>
+            constexpr CvAssignable& operator=(const volatile TypeIdentity<T>&&) noexcept {
+                return *this;
+            }
+
+            template <class T = CvAssignable>
+            constexpr const volatile CvAssignable& operator=(const volatile TypeIdentity<T>&) const volatile noexcept {
+                return *this;
+            }
+            template <class T = CvAssignable>
+            constexpr const volatile CvAssignable& operator=(const volatile TypeIdentity<T>&&) const volatile noexcept {
+                return *this;
+            }
+        };
+
+        void run_test() {
+            using std::swap;
+            {
+                std::optional<const int> oc{};
+                oc.emplace(0);
+                static_assert(!std::is_copy_assignable_v<decltype(oc)>);
+                static_assert(!std::is_move_assignable_v<decltype(oc)>);
+                static_assert(!std::is_swappable_v<decltype(oc)>);
+
+                std::optional<volatile int> ov{};
+                std::optional<volatile int> ov2{};
+                ov.emplace(0);
+                swap(ov, ov);
+                ov = ov2;
+                ov = std::move(ov2);
+
+                std::optional<const volatile int> ocv{};
+                ocv.emplace(0);
+                static_assert(!std::is_copy_assignable_v<decltype(ocv)>);
+                static_assert(!std::is_move_assignable_v<decltype(ocv)>);
+                static_assert(!std::is_swappable_v<decltype(ocv)>);
+            }
+            {
+                std::optional<const CvAssignable> oc{};
+                std::optional<const CvAssignable> oc2{};
+                oc.emplace(CvAssignable{});
+                swap(oc, oc);
+                oc = oc2;
+                oc = std::move(oc2);
+
+                std::optional<volatile CvAssignable> ov{};
+                std::optional<volatile CvAssignable> ov2{};
+                ov.emplace(CvAssignable{});
+                swap(ov, ov);
+                ov = ov2;
+                ov = std::move(ov2);
+
+                std::optional<const volatile CvAssignable> ocv{};
+                std::optional<const volatile CvAssignable> ocv2{};
+                ocv.emplace(CvAssignable{});
+                swap(ocv, ocv);
+                ocv = ocv2;
+                ocv = std::move(ocv2);
+            }
+        }
+    } // namespace assign_cv
 } // namespace msvc
 
 int main() {
@@ -7432,47 +8626,54 @@ int main() {
     bad_optional_access::default_::run_test();
     bad_optional_access::derive::run_test();
 
+    comp_with_t::three_way::run_test();
     comp_with_t::equal::run_test();
-    comp_with_t::not_equal::run_test();
-    comp_with_t::less_than::run_test();
-    comp_with_t::less_equal::run_test();
     comp_with_t::greater_than::run_test();
     comp_with_t::greater_equal::run_test();
+    comp_with_t::less_equal::run_test();
+    comp_with_t::less_than::run_test();
+    comp_with_t::not_equal::run_test();
 
-    enabled_hash::run_test();
+    hash::enabled_hash::run_test();
     hash::run_test();
 
+    monadic::and_then::run_test();
+    monadic::or_else::run_test();
+    monadic::transform::run_test();
+
+    nullops::three_way::run_test();
     nullops::equal::run_test();
-    nullops::not_equal::run_test();
-    nullops::less_than::run_test();
-    nullops::less_equal::run_test();
     nullops::greater_than::run_test();
     nullops::greater_equal::run_test();
+    nullops::less_equal::run_test();
+    nullops::less_than::run_test();
+    nullops::not_equal::run_test();
 
     nullopt::run_test();
 
-    assign::nullopt::run_test();
-    assign::copy::run_test();
-    assign::move::run_test();
     assign::value::run_test();
-    assign::optional_U::run_test();
+    assign::const_optional_U::run_test();
+    assign::copy::run_test();
     assign::emplace::run_test();
     assign::emplace_initializer_list::run_test();
+    assign::move::run_test();
+    assign::nullopt::run_test();
+    assign::optional_U::run_test();
 
     ctor::const_optional_U::run_test();
     ctor::const_T::run_test();
+    ctor::copy::run_test();
     ctor::deduct::run_test();
     ctor::default_::run_test();
     ctor::clobber::run_test();
-    ctor::explicit_optional_U::run_test();
     ctor::explicit_const_optional_U::run_test();
-    ctor::nullopt::run_test();
-    ctor::copy::run_test();
-    ctor::move::run_test();
-    ctor::rvalue_T::run_test();
-    ctor::in_place::run_test();
+    ctor::explicit_optional_U::run_test();
     ctor::initializer_list::run_test();
+    ctor::in_place::run_test();
+    ctor::move::run_test();
+    ctor::nullopt::run_test();
     ctor::optional_U::run_test();
+    ctor::rvalue_T::run_test();
     ctor::U::run_test();
 
     dtor::run_test();
@@ -7480,22 +8681,19 @@ int main() {
     modifiers::reset::run_test();
 
     observe::op_bool::run_test();
-
     observe::deref::run_test();
     observe::deref_const::run_test();
     observe::deref_const_rvalue::run_test();
     observe::deref_rvalue::run_test();
-
     observe::has_value::run_test();
     observe::op_arrow::run_test();
     observe::op_arrow_const::run_test();
     observe::value::run_test();
-
     observe::value_const::run_test();
-    observe::value_rvalue::run_test();
     observe::value_const_rvalue::run_test();
     observe::value_or::run_test();
     observe::value_or_const::run_test();
+    observe::value_rvalue::run_test();
 
     member_swap::run_test();
 
@@ -7505,21 +8703,28 @@ int main() {
 
     types::run_test();
 
+    relops::three_way::run_test();
     relops::equal::run_test();
-    relops::not_equal::run_test();
-    relops::less_than::run_test();
+    relops::greater_equal::run_test();
     relops::greater_than::run_test();
     relops::less_equal::run_test();
-    relops::greater_equal::run_test();
+    relops::less_than::run_test();
+    relops::not_equal::run_test();
 
     nonmembers::make_optional::run_test();
     nonmembers::make_optional_explicit::run_test();
     nonmembers::make_optional_explicit_init_list::run_test();
     nonmembers::swap_::run_test();
 
+    optional_includes_initializer_list::run_test();
+
+    msvc::lwg3836::run_test();
+
     msvc::vso406124::run_test();
     msvc::vso508126::run_test();
     msvc::vso614907::run_test();
 
     msvc::gh2458::run_test();
+
+    msvc::assign_cv::run_test();
 }

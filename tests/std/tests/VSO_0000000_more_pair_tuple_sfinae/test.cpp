@@ -3,9 +3,9 @@
 
 #include <cassert>
 #include <memory>
-#ifndef _M_CEE
+#ifndef _M_CEE_PURE
 #include <mutex>
-#endif // _M_CEE
+#endif // _M_CEE_PURE
 #include <new>
 #include <string>
 #include <tuple>
@@ -56,7 +56,7 @@ struct ExplicitDefault {
 };
 
 template <typename T>
-constexpr bool OrdinaryDC = is_default_constructible_v<T>&& IsImplicitlyDefaultConstructible<T>::value;
+constexpr bool OrdinaryDC = is_default_constructible_v<T> && IsImplicitlyDefaultConstructible<T>::value;
 
 template <typename T>
 constexpr bool ExplicitDC = is_default_constructible_v<T> && !IsImplicitlyDefaultConstructible<T>::value;
@@ -70,11 +70,11 @@ STATIC_ASSERT(ExplicitDC<ExplicitDefault>);
 STATIC_ASSERT(ExplicitDC<nothrow_t>);
 STATIC_ASSERT(ExplicitDC<piecewise_construct_t>);
 STATIC_ASSERT(ExplicitDC<allocator_arg_t>);
-#ifndef _M_CEE
+#ifndef _M_CEE_PURE
 STATIC_ASSERT(ExplicitDC<defer_lock_t>);
 STATIC_ASSERT(ExplicitDC<try_to_lock_t>);
 STATIC_ASSERT(ExplicitDC<adopt_lock_t>);
-#endif // _M_CEE
+#endif // _M_CEE_PURE
 
 using Expl = ExplicitDefault;
 using NOPE = NoDefault;
@@ -643,9 +643,6 @@ void test_VSO_191303() {
 // VSO-215996 "<tuple>: Wrong tuple constructor overload resolution causes stack overflow"
 // VSO-216014 "<tuple>: Tuple constructor overload resolution error"
 
-template <typename X>
-struct AlwaysFalse : false_type {};
-
 // AbsorbingRef and AbsorbingVal need to appear to be omni-constructible,
 // so they use static_assert instead of =delete.
 
@@ -656,7 +653,7 @@ struct AbsorbingRef {
 
     template <typename T>
     AbsorbingRef(const T&) {
-        STATIC_ASSERT(AlwaysFalse<T>::value);
+        STATIC_ASSERT(false);
     }
 };
 
@@ -667,7 +664,7 @@ struct AbsorbingVal {
 
     template <typename U>
     AbsorbingVal(U) {
-        STATIC_ASSERT(AlwaysFalse<U>::value);
+        STATIC_ASSERT(false);
     }
 };
 

@@ -3,7 +3,6 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#pragma once
 #ifndef _YVALS_CORE_H_
 #define _YVALS_CORE_H_
 #ifndef _STL_COMPILER_PREPROCESSOR
@@ -15,13 +14,14 @@
 #else
 #define _STL_COMPILER_PREPROCESSOR 1
 #endif
-#endif // _STL_COMPILER_PREPROCESSOR
+#endif // !defined(_STL_COMPILER_PREPROCESSOR)
 
 #if _STL_COMPILER_PREPROCESSOR
 
+// This does not use `_EMIT_STL_ERROR`, as it is checking the language itself.
 #ifndef __cplusplus
-#error STL1003: Unexpected compiler, expected C++ compiler.
-#endif // __cplusplus
+#error error STL1003: Unexpected compiler, expected C++ compiler.
+#endif // !defined(__cplusplus)
 
 // Implemented unconditionally:
 // N3911 void_t
@@ -63,10 +63,19 @@
 // P0935R0 Eradicating Unnecessarily Explicit Default Constructors
 // P0941R2 Feature-Test Macros
 // P0972R0 noexcept For <chrono> zero(), min(), max()
+// P1065R2 constexpr INVOKE
+//     (the std::invoke function only; other components like bind and reference_wrapper are C++20 only)
 // P1164R1 Making create_directory() Intuitive
 // P1165R1 Consistently Propagating Stateful Allocators In basic_string's operator+()
 // P1902R1 Missing Feature-Test Macros 2017-2019
+// P2013R5 Freestanding Language: Optional ::operator new
+//     (no change is needed for our hosted implementation)
+// P2198R7 Freestanding Feature-Test Macros And Implementation-Defined Extensions
+//     (except for __cpp_lib_freestanding_ranges)
+// P2338R4 Freestanding Library: Character Primitives And The C Library
+//     (except for __cpp_lib_freestanding_charconv)
 // P2401R0 Conditional noexcept For exchange()
+// P2937R0 Freestanding Library: Remove strtok
 
 // _HAS_CXX17 directly controls:
 // P0005R4 not_fn()
@@ -112,15 +121,19 @@
 // P0602R4 Propagating Copy/Move Triviality In variant/optional
 // P0604R0 invoke_result, is_invocable, is_nothrow_invocable
 // P0607R0 Inline Variables For The STL
+// P0608R3 Improving variant's Converting Constructor/Assignment
 // P0682R1 Repairing Elementary String Conversions
 // P0739R0 Improving Class Template Argument Deduction For The STL
 // P0858R0 Constexpr Iterator Requirements
-// P1065R2 constexpr INVOKE
-//     (the std::invoke function only; other components like bind and reference_wrapper are C++20 only)
+// P1169R4 static operator()
 // P1518R2 Stop Overconstraining Allocators In Container Deduction Guides
 // P2162R2 Inheriting From variant
 // P2251R1 Require span And basic_string_view To Be Trivially Copyable
 //     (basic_string_view always provides this behavior)
+// P2338R4 Freestanding Library: Character Primitives And The C Library
+//     (including __cpp_lib_freestanding_charconv)
+// P2517R1 Conditional noexcept For apply()
+// P2875R4 Undeprecate polymorphic_allocator::destroy
 
 // _HAS_CXX17 indirectly controls:
 // N4190 Removing auto_ptr, random_shuffle(), And Old <functional> Stuff
@@ -173,7 +186,6 @@
 // P0586R2 Integer Comparison Functions
 // P0591R4 Utility Functions For Uses-Allocator Construction
 // P0595R2 is_constant_evaluated()
-// P0608R3 Improving variant's Converting Constructor/Assignment
 // P0616R0 Using move() In <numeric>
 // P0631R8 <numbers> Math Constants
 // P0645R10 <format> Text Formatting
@@ -209,7 +221,7 @@
 // P1032R1 Miscellaneous constexpr
 // P1035R7 Input Range Adaptors
 // P1065R2 constexpr INVOKE
-//     (except the std::invoke function which is implemented in C++17)
+//     (except the std::invoke function which is implemented unconditionally)
 // P1085R2 Removing span Comparisons
 // P1115R3 erase()/erase_if() Return size_type
 // P1123R0 Atomic Compare-And-Exchange With Padding Bits For atomic_ref
@@ -258,6 +270,9 @@
 // P2102R0 Making "Implicit Expression Variations" More Explicit
 // P2106R0 Range Algorithm Result Types
 // P2116R0 Removing tuple-Like Protocol Support From Fixed-Extent span
+// P2167R3 Improving boolean-testable Usage
+// P2198R7 Freestanding Feature-Test Macros And Implementation-Defined Extensions
+//     (including __cpp_lib_freestanding_ranges)
 // P2210R2 Superior String Splitting
 // P2216R3 std::format Improvements
 // P2231R1 Completing constexpr In optional And variant
@@ -270,9 +285,27 @@
 // P2367R0 Remove Misuses Of List-Initialization From Clause 24 Ranges
 // P2372R3 Fixing Locale Handling In chrono Formatters
 // P2393R1 Cleaning Up Integer-Class Types
+// P2408R5 Ranges Iterators As Inputs To Non-Ranges Algorithms
 // P2415R2 What Is A view?
 // P2418R2 Add Support For std::generator-like Types To std::format
+// P2419R2 Clarify Handling Of Encodings In Localized Formatting Of chrono Types
 // P2432R1 Fix istream_view
+// P2465R3 Standard Library Modules std And std.compat
+// P2508R1 basic_format_string, format_string, wformat_string
+// P2510R3 Formatting Pointers
+// P2520R0 move_iterator<T*> Should Be A Random-Access Iterator
+// P2538R1 ADL-Proof projected
+// P2572R1 std::format Fill Character Allowances
+// P2588R3 barrier's Phase Completion Guarantees
+// P2602R2 Poison Pills Are Too Toxic
+// P2609R3 Relaxing Ranges Just A Smidge
+// P2655R3 common_reference_t Of reference_wrapper Should Be A Reference Type
+// P2675R1 Improving std::format's Width Estimation
+// P2711R1 Making Multi-Param Constructors Of Views explicit
+// P2736R2 Referencing The Unicode Standard
+// P2770R0 Stashing Stashing Iterators For Proper Flattening
+// P2905R2 Runtime Format Strings
+// P2909R4 Fix Formatting Of Code Units As Integers
 
 // _HAS_CXX20 indirectly controls:
 // P0619R4 Removing C++17-Deprecated Features
@@ -283,6 +316,7 @@
 // Other C++20 deprecation warnings
 
 // _HAS_CXX23 directly controls:
+// P0009R18 <mdspan>
 // P0288R9 move_only_function
 // P0323R12 <expected>
 // P0401R6 Providing Size Feedback In The Allocator Interface
@@ -295,27 +329,67 @@
 // P1072R10 basic_string::resize_and_overwrite
 // P1132R7 out_ptr(), inout_ptr()
 // P1147R1 Printing volatile Pointers
+// P1206R7 Conversions From Ranges To Containers
+// P1223R5 ranges::find_last, ranges::find_last_if, ranges::find_last_if_not
 // P1272R4 byteswap()
 // P1328R1 constexpr type_info::operator==()
-// P1413R3 Deprecate aligned_storage And aligned_union
 // P1425R4 Iterator Pair Constructors For stack And queue
+// P1467R9 Extended Floating-Point Types
+//     (only the <stdfloat> header; we don't support any optional extended floating-point types)
 // P1659R3 ranges::starts_with, ranges::ends_with
 // P1679R3 contains() For basic_string/basic_string_view
 // P1682R3 to_underlying() For Enumerations
+// P1899R3 views::stride
 // P1951R1 Default Template Arguments For pair's Forwarding Constructor
 // P1989R2 Range Constructor For string_view
 // P2077R3 Heterogeneous Erasure Overloads For Associative Containers
+// P2093R14 <print>: Formatted Output
 // P2136R3 invoke_r()
+// P2164R9 views::enumerate
+// P2165R4 Compatibility Between tuple, pair, And tuple-like Objects
 // P2166R1 Prohibiting basic_string And basic_string_view Construction From nullptr
 // P2186R2 Removing Garbage Collection Support
 // P2273R3 constexpr unique_ptr
+// P2278R4 cbegin Should Always Return A Constant Iterator
+// P2286R8 Formatting Ranges
+//     (only the '?' format specifier for strings and characters)
+// P2291R3 constexpr Integral <charconv>
+// P2302R4 ranges::contains, ranges::contains_subrange
 // P2321R2 zip
-//     (changes to pair, tuple, and vector<bool>::reference only)
+// P2322R6 ranges::fold_left, ranges::fold_right, Etc.
+// P2374R4 views::cartesian_product
+// P2387R3 Pipe Support For User-Defined Range Adaptors
+// P2404R3 Move-Only Types For Comparison Concepts
+// P2417R2 More constexpr bitset
+// P2438R2 string::substr() &&
 // P2440R1 ranges::iota, ranges::shift_left, ranges::shift_right
 // P2441R2 views::join_with
 // P2442R1 Windowing Range Adaptors: views::chunk, views::slide
 // P2443R1 views::chunk_by
-// P2549R0 unexpected<E>::error()
+// P2445R1 forward_like()
+// P2446R2 views::as_rvalue
+// P2467R1 ios_base::noreplace: Exclusive Mode For fstreams
+// P2474R2 views::repeat
+// P2494R2 Relaxing Range Adaptors To Allow Move-Only Types
+// P2499R0 string_view Range Constructor Should Be explicit
+// P2505R5 Monadic Functions For expected
+// P2539R4 Synchronizing print() With The Underlying Stream
+// P2540R1 Empty Product For Certain Views
+// P2549R1 unexpected<E>::error()
+// P2599R2 mdspan: index_type, size_type
+// P2604R0 mdspan: data_handle_type, data_handle(), exhaustive
+// P2613R1 mdspan: empty()
+// P2652R2 Disallowing User Specialization Of allocator_traits
+// P2693R1 Formatting thread::id And stacktrace
+// P2713R1 Escaping Improvements In std::format
+// P2763R1 Fixing layout_stride's Default Constructor For Fully Static Extents
+// P2836R1 basic_const_iterator Should Follow Its Underlying Type's Convertibility
+// P3142R0 Printing Blank Lines With println()
+
+// _HAS_CXX23 and _SILENCE_ALL_CXX23_DEPRECATION_WARNINGS control:
+// P1413R3 Deprecate aligned_storage And aligned_union
+// P2614R2 Deprecating float_denorm_style, numeric_limits::has_denorm, numeric_limits::has_denorm_loss
+// Other C++23 deprecation warnings
 
 // Parallel Algorithms Notes
 // C++ allows an implementation to implement parallel algorithms as calls to the serial algorithms.
@@ -332,6 +406,8 @@
 // * any_of
 // * count
 // * count_if
+// * destroy
+// * destroy_n
 // * equal
 // * exclusive_scan
 // * find
@@ -365,6 +441,10 @@
 // * transform_exclusive_scan
 // * transform_inclusive_scan
 // * transform_reduce
+// * uninitialized_default_construct
+// * uninitialized_default_construct_n
+// * uninitialized_value_construct
+// * uninitialized_value_construct_n
 //
 // The following are not presently parallelized:
 //
@@ -382,6 +462,14 @@
 // * shift_left
 // * shift_right
 // * swap_ranges
+//
+// Possibly same as above, but not yet tested.
+// * uninitialized_copy
+// * uninitialized_copy_n
+// * uninitialized_fill
+// * uninitialized_fill_n
+// * uninitialized_move
+// * uninitialized_move_n
 //
 // Confusion over user parallelism requirements exists; likely in the above category anyway.
 // * generate
@@ -415,13 +503,30 @@
 #include <vcruntime.h>
 #include <xkeycheck.h> // The _HAS_CXX tags must be defined before including this.
 
+#define _STL_STRINGIZE_(S) #S
+#define _STL_STRINGIZE(S)  _STL_STRINGIZE_(S)
+
+// Note that _STL_PRAGMA is load-bearing;
+// it still needs to exist even once CUDA and ICC support _Pragma.
+#if defined(__CUDACC__) || defined(__INTEL_COMPILER)
+#define _STL_PRAGMA(PRAGMA) __pragma(PRAGMA)
+#else
+#define _STL_PRAGMA(PRAGMA) _Pragma(#PRAGMA)
+#endif
+
+#define _STL_PRAGMA_MESSAGE(MESSAGE) _STL_PRAGMA(message(MESSAGE))
+#define _EMIT_STL_MESSAGE(MESSAGE)   _STL_PRAGMA_MESSAGE(__FILE__ "(" _STL_STRINGIZE(__LINE__) "): " MESSAGE)
+
+#define _EMIT_STL_WARNING(NUMBER, MESSAGE) _EMIT_STL_MESSAGE("warning " #NUMBER ": " MESSAGE)
+#define _EMIT_STL_ERROR(NUMBER, MESSAGE)   static_assert(false, "error " #NUMBER ": " MESSAGE)
+
 #ifndef _STL_WARNING_LEVEL
 #if defined(_MSVC_WARNING_LEVEL) && _MSVC_WARNING_LEVEL >= 4
 #define _STL_WARNING_LEVEL 4
 #else // defined(_MSVC_WARNING_LEVEL) && _MSVC_WARNING_LEVEL >= 4
 #define _STL_WARNING_LEVEL 3
 #endif // defined(_MSVC_WARNING_LEVEL) && _MSVC_WARNING_LEVEL >= 4
-#endif // _STL_WARNING_LEVEL
+#endif // !defined(_STL_WARNING_LEVEL)
 
 #if _STL_WARNING_LEVEL < 3
 #error _STL_WARNING_LEVEL cannot be less than 3.
@@ -431,29 +536,165 @@
 #error _STL_WARNING_LEVEL cannot be greater than 4.
 #endif // _STL_WARNING_LEVEL > 4
 
+#ifndef __has_cpp_attribute
+#define _FALLTHROUGH
+#elif __has_cpp_attribute(fallthrough) >= 201603L
+#define _FALLTHROUGH [[fallthrough]]
+#else
+#define _FALLTHROUGH
+#endif
+
+#ifndef __has_cpp_attribute // vvv no attributes vvv
+#define _LIKELY
+#define _UNLIKELY
+#elif __has_cpp_attribute(likely) >= 201803L && __has_cpp_attribute(unlikely) >= 201803L // ^^^ no attr / C++20 attr vvv
+#define _LIKELY   [[likely]]
+#define _UNLIKELY [[unlikely]]
+#elif defined(__clang__) // ^^^ C++20 attributes / clang attributes and C++17 or C++14 vvv
+#define _LIKELY   [[__likely__]]
+#define _UNLIKELY [[__unlikely__]]
+#else // ^^^ clang attributes and C++17 or C++14 / C1XX attributes and C++17 or C++14 vvv
+#define _LIKELY
+#define _UNLIKELY
+#endif // ^^^ C1XX attributes and C++17 or C++14 ^^^
+
 // _HAS_NODISCARD (in vcruntime.h) controls:
 // [[nodiscard]] attributes on STL functions
 
+// TRANSITION, This should go to vcruntime.h
+#ifndef __has_cpp_attribute
+#define _NODISCARD_MSG(_Msg)
+#elif __has_cpp_attribute(nodiscard) >= 201907L
+#define _NODISCARD_MSG(_Msg) [[nodiscard(_Msg)]]
+#elif __has_cpp_attribute(nodiscard) >= 201603L
+#define _NODISCARD_MSG(_Msg) [[nodiscard]]
+#else
+#define _NODISCARD_MSG(_Msg)
+#endif
+
 #ifndef __has_cpp_attribute
 #define _NODISCARD_CTOR
+#define _NODISCARD_CTOR_MSG(_Msg)
 #elif __has_cpp_attribute(nodiscard) >= 201907L
-#define _NODISCARD_CTOR _NODISCARD
-#else
+#define _NODISCARD_CTOR           _NODISCARD
+#define _NODISCARD_CTOR_MSG(_Msg) _NODISCARD_MSG(_Msg)
+#else // ^^^ __has_cpp_attribute(nodiscard) >= 201907L / __has_cpp_attribute(nodiscard) < 201907L vvv
 #define _NODISCARD_CTOR
-#endif
+#define _NODISCARD_CTOR_MSG(_Msg)
+#endif // ^^^ defined(__has_cpp_attribute) && __has_cpp_attribute(nodiscard) < 201907L ^^^
 
 #if defined(__CUDACC__) && !defined(__clang__) // TRANSITION, VSO-568006
 #define _NODISCARD_FRIEND friend
-#else // ^^^ workaround ^^^ / vvv no workaround vvv
+#else // ^^^ workaround / no workaround vvv
 #define _NODISCARD_FRIEND _NODISCARD friend
-#endif // TRANSITION, VSO-568006
+#endif // ^^^ no workaround ^^^
+
+#define _NODISCARD_REMOVE_ALG                                                                                    \
+    _NODISCARD_MSG("The 'remove' and 'remove_if' algorithms return the iterator past the last element "          \
+                   "that should be kept. You need to call container.erase(result, container.end()) afterwards. " \
+                   "In C++20, 'std::erase' and 'std::erase_if' are simpler replacements for these two steps.")
+
+#define _NODISCARD_UNIQUE_ALG                                                                                \
+    _NODISCARD_MSG("The 'unique' algorithm returns the iterator past the last element that should be kept. " \
+                   "You need to call container.erase(result, container.end()) afterwards.")
+
+#define _NODISCARD_EMPTY_MEMBER                                                                                     \
+    _NODISCARD_MSG(                                                                                                 \
+        "This member function returns a bool indicating whether the collection is empty and has no other effects. " \
+        "It is not useful to call this member function and discard the return value. "                              \
+        "Use the 'clear()' member function if you want to erase all elements.")
+
+#define _NODISCARD_EMPTY_ARRAY_MEMBER                                                                          \
+    _NODISCARD_MSG(                                                                                            \
+        "This member function returns a bool indicating whether the array is empty and has no other effects. " \
+        "It is not useful to call this member function and discard the return value. "                         \
+        "There's no way to clear an array as its size is fixed.")
+
+#define _NODISCARD_EMPTY_MEMBER_NO_CLEAR                                                                            \
+    _NODISCARD_MSG(                                                                                                 \
+        "This member function returns a bool indicating whether the collection is empty and has no other effects. " \
+        "It is not useful to call this member function and discard the return value. "                              \
+        "This collection can be cleared by assigning an empty value to it.")
+
+#define _NODISCARD_EMPTY_NON_MEMBER                                                               \
+    _NODISCARD_MSG("This function returns a bool indicating whether the collection is empty and " \
+                   "has no other effects. It is not useful to call this function and discard the return value.")
+
+#define _NODISCARD_BARRIER_TOKEN \
+    _NODISCARD_MSG("The token from 'arrive()' should not be discarded; it should be passed to 'wait()'.")
+
+#define _NODISCARD_TRY_WAIT                                                                                    \
+    _NODISCARD_MSG(                                                                                            \
+        "This member function returns the state of the synchronization object and does not do anything else; " \
+        "it is not useful to call this member function and discard the return value.")
+
+#define _NODISCARD_TRY_CHANGE_STATE                                                                    \
+    _NODISCARD_MSG("This function returns whether the operation succeeded in modifying object state. " \
+                   "It is dangerous to ignore the return value.")
+
+#define _NODISCARD_SMART_PTR_ALLOC                                                                            \
+    _NODISCARD_MSG("This function constructs an object wrapped by a smart pointer and has no other effects; " \
+                   "it is not useful to call this function and discard the return value.")
+
+#define _NODISCARD_RAW_PTR_ALLOC                                                \
+    _NODISCARD_MSG("This function allocates memory and returns a raw pointer. " \
+                   "Discarding the return value will cause a memory leak.")
+
+#define _NODISCARD_ASSUME_ALIGNED                                                                                    \
+    _NODISCARD_MSG("'std::assume_aligned' has a potential effect on the return value (not on the passed argument). " \
+                   "It is not useful to call 'std::assume_aligned' and discard the return value.")
+
+#define _NODISCARD_LAUNDER                                                                                    \
+    _NODISCARD_MSG("'std::launder' has a potential effect on the return value (not on the passed argument). " \
+                   "It is not useful to call 'std::launder' and discard the return value.")
+
+#ifdef _SILENCE_NODISCARD_LOCK_WARNINGS
+
+#define _NODISCARD_LOCK
+#define _NODISCARD_CTOR_LOCK
+
+#else // ^^^ defined(_SILENCE_NODISCARD_LOCK_WARNINGS) / !defined(_SILENCE_NODISCARD_LOCK_WARNINGS) vvv
+
+#define _NODISCARD_LOCK                                                                                                \
+    _NODISCARD_MSG("A lock should be stored in a variable to protect the scope. If you're intentionally constructing " \
+                   "a temporary to protect the rest of the current expression using the comma operator, you can cast " \
+                   "the temporary to void or define _SILENCE_NODISCARD_LOCK_WARNINGS to suppress this warning.")
+
+#define _NODISCARD_CTOR_LOCK                                                                                \
+    _NODISCARD_CTOR_MSG(                                                                                    \
+        "A lock should be stored in a variable to protect the scope. If you're intentionally constructing " \
+        "a temporary to protect the rest of the current expression using the comma operator, you can cast " \
+        "the temporary to void or define _SILENCE_NODISCARD_LOCK_WARNINGS to suppress this warning.")
+
+#endif // ^^^ !defined(_SILENCE_NODISCARD_LOCK_WARNINGS) ^^^
+
+#define _NODISCARD_CTOR_THREAD                                                     \
+    _NODISCARD_CTOR_MSG("This temporary 'std::thread' is not joined or detached, " \
+                        "so 'std::terminate' will be called at the end of the statement.")
+
+#define _NODISCARD_CTOR_JTHREAD                                                                            \
+    _NODISCARD_CTOR_MSG("This temporary 'std::jthread' is implicitly joined at the end of the statement. " \
+                        "If this is intentional, you can add '.join()' to suppress this warning. "         \
+                        "Otherwise, this 'std::jthread' should be stored in a variable.")
+
+#define _NODISCARD_ASYNC                                                                                           \
+    _NODISCARD_MSG("The result of 'std::async' should be stored in a variable. If the return value is discarded, " \
+                   "the temporary 'std::future' is destroyed, waiting for an async result or evaluating "          \
+                   "a deferred result, thus defeating the purpose of 'std::async'.")
+
+#define _NODISCARD_GET_FUTURE \
+    _NODISCARD_MSG("Since 'get_future' may be called only once, discarding the result is likely a mistake.")
 
 #pragma push_macro("msvc")
 #pragma push_macro("known_semantics")
 #pragma push_macro("noop_dtor")
+#pragma push_macro("intrinsic")
+#pragma push_macro("lifetimebound")
 #undef msvc
 #undef known_semantics
 #undef noop_dtor
+#undef intrinsic
+#undef lifetimebound
 
 #ifndef __has_cpp_attribute
 #define _HAS_MSVC_ATTRIBUTE(x) 0
@@ -479,7 +720,28 @@
 #define _MSVC_NOOP_DTOR
 #endif
 
+// Should we use [[msvc::intrinsic]] allowing the compiler to implement the
+// behavior of certain trivial functions?
+#if _HAS_MSVC_ATTRIBUTE(intrinsic)
+#define _MSVC_INTRINSIC [[msvc::intrinsic]]
+#else
+#define _MSVC_INTRINSIC
+#endif
+
+// Should we enable [[msvc::lifetimebound]] or [[clang::lifetimebound]] warnings?
+#if !defined(__has_cpp_attribute) || defined(_SILENCE_LIFETIMEBOUND_WARNING)
+#define _MSVC_LIFETIMEBOUND
+#elif _HAS_MSVC_ATTRIBUTE(lifetimebound)
+#define _MSVC_LIFETIMEBOUND [[msvc::lifetimebound]]
+#elif __has_cpp_attribute(_Clang::__lifetimebound__)
+#define _MSVC_LIFETIMEBOUND [[_Clang::__lifetimebound__]]
+#else
+#define _MSVC_LIFETIMEBOUND
+#endif
+
 #undef _HAS_MSVC_ATTRIBUTE
+#pragma pop_macro("lifetimebound")
+#pragma pop_macro("intrinsic")
 #pragma pop_macro("noop_dtor")
 #pragma pop_macro("known_semantics")
 #pragma pop_macro("msvc")
@@ -488,29 +750,30 @@
 // termination on exception is not guaranteed. Specify /EHsc (/Wall)
 #if _HAS_EXCEPTIONS
 #define _STL_DISABLED_WARNING_C4577
-#else // _HAS_EXCEPTIONS
+#else
 #define _STL_DISABLED_WARNING_C4577 4577
-#endif // _HAS_EXCEPTIONS
+#endif
 
 // warning C4984: 'if constexpr' is a C++17 language extension
 #if !_HAS_CXX17
 #define _STL_DISABLED_WARNING_C4984 4984
-#else // !_HAS_CXX17
+#else
 #define _STL_DISABLED_WARNING_C4984
-#endif // !_HAS_CXX17
+#endif
 
 // warning C5053: support for 'explicit(<expr>)' in C++17 and earlier is a vendor extension
 #if !_HAS_CXX20
 #define _STL_DISABLED_WARNING_C5053 5053
-#else // !_HAS_CXX20
+#else
 #define _STL_DISABLED_WARNING_C5053
-#endif // !_HAS_CXX20
+#endif
 
 #ifndef _STL_EXTRA_DISABLED_WARNINGS
 #define _STL_EXTRA_DISABLED_WARNINGS
-#endif // _STL_EXTRA_DISABLED_WARNINGS
+#endif // !defined(_STL_EXTRA_DISABLED_WARNINGS)
 
 // warning C4180: qualifier applied to function type has no meaning; ignored
+// warning C4324: structure was padded due to alignment specifier
 // warning C4412: function signature contains type 'meow'; C++ objects are unsafe to pass between pure code
 //                and mixed or native. (/Wall)
 // warning C4455: literal suffix identifiers that do not start with an underscore are reserved
@@ -530,27 +793,32 @@
 // warning C4702: unreachable code
 // warning C4793: function compiled as native
 // warning C4820: 'N' bytes padding added after data member 'meow' (/Wall)
+// warning C4868: compiler may not enforce left-to-right evaluation order in braced initializer list (/Wall)
 // warning C4988: variable declared outside class/function scope (/Wall /d1WarnOnGlobals)
 // warning C5026: move constructor was implicitly defined as deleted (/Wall)
 // warning C5027: move assignment operator was implicitly defined as deleted (/Wall)
 // warning C5045: Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified (/Wall)
+// warning C5220: a non-static data member with a volatile qualified type no longer implies that compiler generated
+//                copy/move constructors and copy/move assignment operators are not trivial (/Wall)
+// warning C5246: 'member': the initialization of a subobject should be wrapped in braces (/Wall)
 // warning C6294: Ill-defined for-loop: initial condition does not satisfy test. Loop body not executed
 
 #ifndef _STL_DISABLED_WARNINGS
 // clang-format off
 #define _STL_DISABLED_WARNINGS                        \
-    4180 4412 4455 4494 4514 4574 4582 4583 4587 4588 \
-    4619 4623 4625 4626 4643 4648 4702 4793 4820 4988 \
-    5026 5027 5045 6294                               \
+    4180 4324 4412 4455 4494 4514 4574 4582 4583 4587 \
+    4588 4619 4623 4625 4626 4643 4648 4702 4793 4820 \
+    4868 4988 5026 5027 5045 5220 5246 6294           \
     _STL_DISABLED_WARNING_C4577                       \
     _STL_DISABLED_WARNING_C4984                       \
     _STL_DISABLED_WARNING_C5053                       \
     _STL_EXTRA_DISABLED_WARNINGS
 // clang-format on
-#endif // _STL_DISABLED_WARNINGS
+#endif // !defined(_STL_DISABLED_WARNINGS)
 
 // warning: constexpr if is a C++17 extension [-Wc++17-extensions]
 // warning: explicit(bool) is a C++20 extension [-Wc++20-extensions]
+// warning: declaring overloaded 'operator()' as 'static' is a C++23 extension [-Wc++23-extensions]
 // warning: ignoring __declspec(allocator) because the function return type '%s' is not a pointer or reference type
 //     [-Wignored-attributes]
 // warning: '#pragma float_control' is not supported on this target - ignored [-Wignored-pragmas]
@@ -563,23 +831,24 @@
     _Pragma("clang diagnostic push")                                \
     _Pragma("clang diagnostic ignored \"-Wc++17-extensions\"")      \
     _Pragma("clang diagnostic ignored \"-Wc++20-extensions\"")      \
+    _Pragma("clang diagnostic ignored \"-Wc++23-extensions\"")      \
     _Pragma("clang diagnostic ignored \"-Wignored-attributes\"")    \
     _Pragma("clang diagnostic ignored \"-Wignored-pragmas\"")       \
     _Pragma("clang diagnostic ignored \"-Wuser-defined-literals\"") \
     _Pragma("clang diagnostic ignored \"-Wunknown-pragmas\"")
 // clang-format on
-#else // __clang__
+#else // ^^^ defined(__clang__) / !defined(__clang__) vvv
 #define _STL_DISABLE_CLANG_WARNINGS
-#endif // __clang__
-#endif // _STL_DISABLE_CLANG_WARNINGS
+#endif // ^^^ !defined(__clang__) ^^^
+#endif // !defined(_STL_DISABLE_CLANG_WARNINGS)
 
 #ifndef _STL_RESTORE_CLANG_WARNINGS
 #ifdef __clang__
 #define _STL_RESTORE_CLANG_WARNINGS _Pragma("clang diagnostic pop")
-#else // __clang__
+#else // ^^^ defined(__clang__) / !defined(__clang__) vvv
 #define _STL_RESTORE_CLANG_WARNINGS
-#endif // __clang__
-#endif // _STL_RESTORE_CLANG_WARNINGS
+#endif // ^^^ !defined(__clang__) ^^^
+#endif // !defined(_STL_RESTORE_CLANG_WARNINGS)
 
 // clang-format off
 #ifndef _STL_DISABLE_DEPRECATED_WARNING
@@ -607,41 +876,41 @@
 #else // vvv MSVC vvv
 #define _STL_RESTORE_DEPRECATED_WARNING _Pragma("warning(pop)")
 #endif // ^^^ MSVC ^^^
-#endif // _STL_RESTORE_DEPRECATED_WARNING
+#endif // !defined(_STL_RESTORE_DEPRECATED_WARNING)
 
 #define _CPPLIB_VER       650
 #define _MSVC_STL_VERSION 143
-#define _MSVC_STL_UPDATE  202207L
+#define _MSVC_STL_UPDATE  202406L
 
 #ifndef _ALLOW_COMPILER_AND_STL_VERSION_MISMATCH
 #if defined(__CUDACC__) && defined(__CUDACC_VER_MAJOR__)
-#if __CUDACC_VER_MAJOR__ < 11 || (__CUDACC_VER_MAJOR__ == 11 && __CUDACC_VER_MINOR__ < 6)
-#error STL1002: Unexpected compiler version, expected CUDA 11.6 or newer.
+#if __CUDACC_VER_MAJOR__ < 12 || (__CUDACC_VER_MAJOR__ == 12 && __CUDACC_VER_MINOR__ < 4)
+_EMIT_STL_ERROR(STL1002, "Unexpected compiler version, expected CUDA 12.4 or newer.");
 #endif // ^^^ old CUDA ^^^
 #elif defined(__EDG__)
 // not attempting to detect __EDG_VERSION__ being less than expected
 #elif defined(__clang__)
-#if __clang_major__ < 14
-#error STL1000: Unexpected compiler version, expected Clang 14.0.0 or newer.
+#if __clang_major__ < 17
+_EMIT_STL_ERROR(STL1000, "Unexpected compiler version, expected Clang 17.0.0 or newer.");
 #endif // ^^^ old Clang ^^^
 #elif defined(_MSC_VER)
-#if _MSC_VER < 1933 // Coarse-grained, not inspecting _MSC_FULL_VER
-#error STL1001: Unexpected compiler version, expected MSVC 19.33 or newer.
+#if _MSC_VER < 1940 // Coarse-grained, not inspecting _MSC_FULL_VER
+_EMIT_STL_ERROR(STL1001, "Unexpected compiler version, expected MSVC 19.40 or newer.");
 #endif // ^^^ old MSVC ^^^
 #else // vvv other compilers vvv
 // not attempting to detect other compilers
 #endif // ^^^ other compilers ^^^
-#endif // _ALLOW_COMPILER_AND_STL_VERSION_MISMATCH
+#endif // !defined(_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH)
 
 #ifndef _HAS_STATIC_RTTI
 #define _HAS_STATIC_RTTI 1
-#endif // _HAS_STATIC_RTTI
+#endif // !defined(_HAS_STATIC_RTTI)
 
 #if defined(_CPPRTTI) && !_HAS_STATIC_RTTI
 #error /GR implies _HAS_STATIC_RTTI.
 #endif // defined(_CPPRTTI) && !_HAS_STATIC_RTTI
 
-// N4842 [dcl.constexpr]/1: "A function or static data member declared with the
+// N4950 [dcl.constexpr]/1: "A function or static data member declared with the
 // constexpr or consteval specifier is implicitly an inline function or variable"
 
 // Functions that became constexpr in C++17
@@ -665,36 +934,46 @@
 #define _CONSTEXPR23 inline
 #endif // ^^^ inline (not constexpr) in C++20 and earlier ^^^
 
+// P2465R3 Standard Library Modules std And std.compat
+#ifdef _BUILD_STD_MODULE
+#if !_HAS_CXX20
+#error The Standard Library Modules are available only with C++20 or later.
+#endif // ^^^ !_HAS_CXX20 ^^^
+#define _EXPORT_STD export
+#else // ^^^ defined(_BUILD_STD_MODULE) / !defined(_BUILD_STD_MODULE) vvv
+#define _EXPORT_STD
+#endif // ^^^ !defined(_BUILD_STD_MODULE) ^^^
+
 // P0607R0 Inline Variables For The STL
 #if _HAS_CXX17
 #define _INLINE_VAR inline
-#else // _HAS_CXX17
+#else
 #define _INLINE_VAR
-#endif // _HAS_CXX17
+#endif
 
 // N4190 Removing auto_ptr, random_shuffle(), And Old <functional> Stuff
 #ifndef _HAS_AUTO_PTR_ETC
 #define _HAS_AUTO_PTR_ETC (!_HAS_CXX17)
-#endif // _HAS_AUTO_PTR_ETC
+#endif // !defined(_HAS_AUTO_PTR_ETC)
 
 // P0003R5 Removing Dynamic Exception Specifications
 #ifndef _HAS_UNEXPECTED
 #define _HAS_UNEXPECTED (!_HAS_CXX17)
-#endif // _HAS_UNEXPECTED
+#endif // !defined(_HAS_UNEXPECTED)
 
 #if _HAS_UNEXPECTED && _HAS_CXX23
-#error STL1004: C++98 unexpected() is incompatible with C++23 unexpected<E>.
+_EMIT_STL_ERROR(STL1004, "C++98 unexpected() is incompatible with C++23 unexpected<E>.");
 #endif // _HAS_UNEXPECTED && _HAS_CXX23
 
 // P0004R1 Removing Deprecated Iostreams Aliases
 #ifndef _HAS_OLD_IOSTREAMS_MEMBERS
 #define _HAS_OLD_IOSTREAMS_MEMBERS (!_HAS_CXX17)
-#endif // _HAS_OLD_IOSTREAMS_MEMBERS
+#endif // !defined(_HAS_OLD_IOSTREAMS_MEMBERS)
 
 // P0298R3 std::byte
 #ifndef _HAS_STD_BYTE
-#define _HAS_STD_BYTE _HAS_CXX17 // inspected by GSL, do not remove
-#endif // _HAS_STD_BYTE
+#define _HAS_STD_BYTE _HAS_CXX17
+#endif // !defined(_HAS_STD_BYTE)
 
 // P0302R1 Removing Allocator Support In std::function
 // LWG-2385 function::assign allocator argument doesn't make sense
@@ -702,12 +981,12 @@
 // LWG-2976 Dangling uses_allocator specialization for packaged_task
 #ifndef _HAS_FUNCTION_ALLOCATOR_SUPPORT
 #define _HAS_FUNCTION_ALLOCATOR_SUPPORT (!_HAS_CXX17)
-#endif // _HAS_FUNCTION_ALLOCATOR_SUPPORT
+#endif // !defined(_HAS_FUNCTION_ALLOCATOR_SUPPORT)
 
 // The non-Standard std::tr1 namespace and TR1-only machinery
 #ifndef _HAS_TR1_NAMESPACE
 #define _HAS_TR1_NAMESPACE (!_HAS_CXX17)
-#endif // _HAS_TR1_NAMESPACE
+#endif // !defined(_HAS_TR1_NAMESPACE)
 
 // STL4000 is "_STATIC_CPPLIB is deprecated", currently in yvals.h
 // STL4001 is "/clr:pure is deprecated", currently in yvals.h
@@ -715,13 +994,13 @@
 #if _HAS_TR1_NAMESPACE
 #ifdef _SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING
 #define _DEPRECATE_TR1_NAMESPACE
-#else // _SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING
+#else // ^^^ warning disabled / warning enabled vvv
 #define _DEPRECATE_TR1_NAMESPACE                                                                                  \
     [[deprecated(                                                                                                 \
         "warning STL4002: "                                                                                       \
         "The non-Standard std::tr1 namespace and TR1-only machinery are deprecated and will be REMOVED. You can " \
-        "define _SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING to acknowledge that you have received this warning.")]]
-#endif // _SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING
+        "define _SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING to suppress this warning.")]]
+#endif // ^^^ warning enabled ^^^
 #endif // _HAS_TR1_NAMESPACE
 
 // STL4003 was "The non-Standard std::identity struct is deprecated and will be REMOVED."
@@ -729,35 +1008,28 @@
 // Enforcement of matching allocator value_types
 #ifndef _ENFORCE_MATCHING_ALLOCATORS
 #define _ENFORCE_MATCHING_ALLOCATORS _HAS_CXX17
-#endif // _ENFORCE_MATCHING_ALLOCATORS
+#endif // !defined(_ENFORCE_MATCHING_ALLOCATORS)
 
-#define _MISMATCHED_ALLOCATOR_MESSAGE(_CONTAINER, _VALUE_TYPE)                                 \
-    _CONTAINER " requires that Allocator's value_type match " _VALUE_TYPE                      \
-               " (See N4659 26.2.1 [container.requirements.general]/16 allocator_type)"        \
-               " Either fix the allocator value_type or define _ENFORCE_MATCHING_ALLOCATORS=0" \
-               " to suppress this diagnostic."
+#define _MISMATCHED_ALLOCATOR_MESSAGE(_CONTAINER, _VALUE_TYPE)                                                      \
+    _CONTAINER " requires that Allocator's value_type match " _VALUE_TYPE " (See N4950 [container.alloc.reqmts]/5)" \
+               " Either fix the allocator value_type or define _ENFORCE_MATCHING_ALLOCATORS=0"                      \
+               " to suppress this error."
 
 // Enforcement of Standard facet specializations
 #ifndef _ENFORCE_FACET_SPECIALIZATIONS
 #define _ENFORCE_FACET_SPECIALIZATIONS 0
-#endif // _ENFORCE_FACET_SPECIALIZATIONS
+#endif // !defined(_ENFORCE_FACET_SPECIALIZATIONS)
 
 #define _FACET_SPECIALIZATION_MESSAGE                                                  \
-    "Unsupported facet specialization; see N4800 27.3.1.1.1 [locale.category]. "       \
+    "Unsupported facet specialization; see N4950 [locale.category]. "                  \
     "Either use a Standard specialization or define _ENFORCE_FACET_SPECIALIZATIONS=0 " \
-    "to suppress this diagnostic."
+    "to suppress this error."
 
 // To improve compiler throughput, use 'hidden friend' operators in <system_error> instead of non-members that are
 // depicted in the Standard.
 #ifndef _STL_OPTIMIZE_SYSTEM_ERROR_OPERATORS
 #define _STL_OPTIMIZE_SYSTEM_ERROR_OPERATORS 1
-#endif // _STL_OPTIMIZE_SYSTEM_ERROR_OPERATORS
-
-#ifdef __cpp_consteval
-#define _CONSTEVAL consteval
-#else // ^^^ supports consteval / no consteval vvv
-#define _CONSTEVAL constexpr
-#endif // ^^^ no consteval ^^^
+#endif // !defined(_STL_OPTIMIZE_SYSTEM_ERROR_OPERATORS)
 
 // Controls whether the STL will force /fp:fast to enable vectorization of algorithms defined
 // in the standard as special cases; such as reduce, transform_reduce, inclusive_scan, exclusive_scan
@@ -766,8 +1038,8 @@
 #define _STD_VECTORIZE_WITH_FLOAT_CONTROL 0
 #else // ^^^ floating-point exceptions enabled / floating-point exceptions disabled (default) vvv
 #define _STD_VECTORIZE_WITH_FLOAT_CONTROL 1
-#endif // _M_FP_EXCEPT
-#endif // _STD_VECTORIZE_WITH_FLOAT_CONTROL
+#endif // ^^^ floating-point exceptions disabled (default) ^^^
+#endif // !defined(_STD_VECTORIZE_WITH_FLOAT_CONTROL)
 
 // P0174R2 Deprecating Vestigial Library Parts
 // P0521R0 Deprecating shared_ptr::unique()
@@ -780,7 +1052,7 @@
     [[deprecated("warning STL4004: "                                                            \
                  "<ccomplex>, <cstdalign>, <cstdbool>, and <ctgmath> are deprecated in C++17. " \
                  "You can define _SILENCE_CXX17_C_HEADER_DEPRECATION_WARNING "                  \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_C_HEADER
 #endif // ^^^ warning disabled ^^^
@@ -791,7 +1063,7 @@
 #define _CXX17_DEPRECATE_STRSTREAM                                              \
     [[deprecated("warning STL4005: <strstream> is deprecated in C++17. "        \
                  "You can define _SILENCE_CXX17_STRSTREAM_DEPRECATION_WARNING " \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_STRSTREAM
 #endif // ^^^ warning disabled ^^^
@@ -804,7 +1076,7 @@
                  "std::uncaught_exception() is deprecated in C++17. "                    \
                  "It is superseded by std::uncaught_exceptions(), plural. "              \
                  "You can define _SILENCE_CXX17_UNCAUGHT_EXCEPTION_DEPRECATION_WARNING " \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_UNCAUGHT_EXCEPTION
 #endif // ^^^ warning disabled ^^^
@@ -818,7 +1090,7 @@
         "warning STL4007: Many result_type typedefs "                                                             \
         "and all argument_type, first_argument_type, and second_argument_type typedefs are deprecated in C++17. " \
         "You can define _SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING "                                     \
-        "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+        "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_ADAPTOR_TYPEDEFS
 #endif // ^^^ warning disabled ^^^
@@ -831,7 +1103,7 @@
                  "std::not1(), std::not2(), std::unary_negate, and std::binary_negate are deprecated in C++17. " \
                  "They are superseded by std::not_fn(). "                                                        \
                  "You can define _SILENCE_CXX17_NEGATORS_DEPRECATION_WARNING "                                   \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_NEGATORS
 #endif // ^^^ warning disabled ^^^
@@ -846,7 +1118,7 @@
                  "Various members of std::allocator are deprecated in C++17. "              \
                  "Use std::allocator_traits instead of accessing these members directly. "  \
                  "You can define _SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING " \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_OLD_ALLOCATOR_MEMBERS
 #endif // ^^^ warning disabled ^^^
@@ -859,7 +1131,7 @@
                  "std::raw_storage_iterator is deprecated in C++17. "                          \
                  "Consider using the std::uninitialized_copy() family of algorithms instead. " \
                  "You can define _SILENCE_CXX17_RAW_STORAGE_ITERATOR_DEPRECATION_WARNING "     \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_RAW_STORAGE_ITERATOR
 #endif // ^^^ warning disabled ^^^
@@ -871,7 +1143,7 @@
     [[deprecated("warning STL4012: "                                                                        \
                  "std::get_temporary_buffer() and std::return_temporary_buffer() are deprecated in C++17. " \
                  "You can define _SILENCE_CXX17_TEMPORARY_BUFFER_DEPRECATION_WARNING "                      \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_TEMPORARY_BUFFER
 #endif // ^^^ warning disabled ^^^
@@ -883,7 +1155,7 @@
     [[deprecated("warning STL4013: "                                                         \
                  "std::is_literal_type and std::is_literal_type_v are deprecated in C++17. " \
                  "You can define _SILENCE_CXX17_IS_LITERAL_TYPE_DEPRECATION_WARNING "        \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_IS_LITERAL_TYPE
 #endif // ^^^ warning disabled ^^^
@@ -896,7 +1168,7 @@
                  "std::result_of and std::result_of_t are deprecated in C++17. "        \
                  "They are superseded by std::invoke_result and std::invoke_result_t. " \
                  "You can define _SILENCE_CXX17_RESULT_OF_DEPRECATION_WARNING "         \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_RESULT_OF
 #endif // ^^^ warning disabled ^^^
@@ -913,7 +1185,7 @@
         "publicly accessible typedefs named iterator_category, value_type, difference_type, pointer, and reference. " \
         "Note that value_type is required to be non-const, even for constant iterators. "                             \
         "You can define _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING "                                      \
-        "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+        "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_ITERATOR_BASE_CLASS
 #endif // ^^^ warning disabled ^^^
@@ -925,7 +1197,7 @@
     [[deprecated("warning STL4016: "                                                    \
                  "std::shared_ptr::unique() is deprecated in C++17. "                   \
                  "You can define _SILENCE_CXX17_SHARED_PTR_UNIQUE_DEPRECATION_WARNING " \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_SHARED_PTR_UNIQUE
 #endif // ^^^ warning disabled ^^^
@@ -943,46 +1215,32 @@
         "The C++ Standard doesn't provide equivalent non-deprecated functionality; "                           \
         "consider using MultiByteToWideChar() and WideCharToMultiByte() from <Windows.h> instead. "            \
         "You can define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING "                                    \
-        "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+        "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX17_DEPRECATE_CODECVT_HEADER
 #endif // ^^^ warning disabled ^^^
 
 // STL4018 was "The non-Standard std::tr2::sys namespace is deprecated and will be REMOVED."
 
-#ifdef _SILENCE_FPOS_SEEKPOS_DEPRECATION_WARNING
-#define _DEPRECATE_FPOS_SEEKPOS
-#else // ^^^ warning disabled / warning enabled vvv
-#define _DEPRECATE_FPOS_SEEKPOS                                                                                        \
-    [[deprecated("warning STL4019: "                                                                                   \
-                 "The member std::fpos::seekpos() is non-Standard, and is preserved only for compatibility with "      \
-                 "workarounds for old versions of Visual C++. It will be removed in a future release, and in this "    \
-                 "release always returns 0. Please use standards-conforming mechanisms to manipulate fpos, such as "   \
-                 "conversions to and from streamoff, or an integral type, instead. If you are receiving this message " \
-                 "while compiling Boost.IOStreams, a fix has been submitted upstream to make Boost use "               \
-                 "standards-conforming mechanisms, as it does for other compilers. You can define "                    \
-                 "_SILENCE_FPOS_SEEKPOS_DEPRECATION_WARNING to acknowledge that you have received this warning, "      \
-                 "or define _REMOVE_FPOS_SEEKPOS to remove std::fpos::seekpos entirely.")]]
-#endif // ^^^ warning enabled ^^^
+// STL4019 was "The member std::fpos::seekpos() is non-Standard, and [...] will be removed"
 
 // P0482R6 Library Support For char8_t
 // Other C++20 deprecation warnings
 
-// N4810 D.16 [depr.locale.category]
+// N4868 D.23 [depr.locale.category]
 #if _HAS_CXX20 && !defined(_SILENCE_CXX20_CODECVT_FACETS_DEPRECATION_WARNING) \
     && !defined(_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS)
 #define _CXX20_DEPRECATE_CODECVT_FACETS                                                                                \
     [[deprecated("warning STL4020: "                                                                                   \
                  "std::codecvt<char16_t, char, mbstate_t>, std::codecvt<char32_t, char, mbstate_t>, "                  \
                  "std::codecvt_byname<char16_t, char, mbstate_t>, and std::codecvt_byname<char32_t, char, mbstate_t> " \
-                 "are deprecated in C++20 and replaced by specializations with a second argument of type char8_t. "    \
-                 "You can define _SILENCE_CXX20_CODECVT_FACETS_DEPRECATION_WARNING "                                   \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "are deprecated in C++20. You can define _SILENCE_CXX20_CODECVT_FACETS_DEPRECATION_WARNING "          \
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_CODECVT_FACETS
 #endif // ^^^ warning disabled ^^^
 
-// N4810 D.17 [depr.fs.path.factory]
+// N4868 D.24 [depr.fs.path.factory]
 #if _HAS_CXX20 && defined(__cpp_char8_t) && !defined(_SILENCE_CXX20_U8PATH_DEPRECATION_WARNING) \
     && !defined(_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS)
 #define _CXX20_DEPRECATE_U8PATH                                                                                      \
@@ -991,35 +1249,13 @@
                  "The constructors of std::filesystem::path provide equivalent functionality via construction from " \
                  "u8string, u8string_view, or iterators with value_type char8_t. "                                   \
                  "You can define _SILENCE_CXX20_U8PATH_DEPRECATION_WARNING "                                         \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_U8PATH
 #endif // ^^^ warning disabled ^^^
 
-#if !defined(_SILENCE_STDEXT_HASH_LOWER_BOUND_DEPRECATION_WARNING)
-#define _DEPRECATE_STDEXT_HASH_LOWER_BOUND                                                                           \
-    [[deprecated(                                                                                                    \
-        "warning STL4022: "                                                                                          \
-        "The hash_meow and unordered_meow containers' non-Standard lower_bound() member was provided for interface " \
-        "compatibility with the ordered associative containers, and doesn't match the semantics of the "             \
-        "hash_meow or unordered_meow containers. Please use the find() member instead. You can define "              \
-        "_SILENCE_STDEXT_HASH_LOWER_BOUND_DEPRECATION_WARNING to suppress this deprecation.")]]
-#else // ^^^ warning enabled / warning disabled vvv
-#define _DEPRECATE_STDEXT_HASH_LOWER_BOUND
-#endif // ^^^ warning disabled ^^^
-
-#if !defined(_SILENCE_STDEXT_HASH_UPPER_BOUND_DEPRECATION_WARNING)
-#define _DEPRECATE_STDEXT_HASH_UPPER_BOUND                                                                           \
-    [[deprecated(                                                                                                    \
-        "warning STL4023: "                                                                                          \
-        "The hash_meow and unordered_meow containers' non-Standard upper_bound() member was provided for interface " \
-        "compatibility with the ordered associative containers, and doesn't match the semantics of the "             \
-        "hash_meow or unordered_meow containers. Please use the second iterator returned by the "                    \
-        "equal_range() member instead. You can define "                                                              \
-        "_SILENCE_STDEXT_HASH_UPPER_BOUND_DEPRECATION_WARNING to suppress this deprecation.")]]
-#else // ^^^ warning enabled / warning disabled vvv
-#define _DEPRECATE_STDEXT_HASH_UPPER_BOUND
-#endif // ^^^ warning disabled ^^^
+// STL4022 warned about "The hash_meow and unordered_meow containers' non-Standard lower_bound() member"
+// STL4023 warned about "The hash_meow and unordered_meow containers' non-Standard upper_bound() member"
 
 // P0966R1 [depr.string.capacity]
 #if _HAS_CXX20 && !defined(_SILENCE_CXX20_STRING_RESERVE_WITHOUT_ARGUMENT_DEPRECATION_WARNING) \
@@ -1030,7 +1266,7 @@
                  "To shrink the string's capacity, use std::string::shrink_to_fit() instead. Otherwise, provide an " \
                  "argument to std::string::reserve(). "                                                              \
                  "You can define _SILENCE_CXX20_STRING_RESERVE_WITHOUT_ARGUMENT_DEPRECATION_WARNING "                \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_STRING_RESERVE_WITHOUT_ARGUMENT
 #endif // ^^^ warning disabled ^^^
@@ -1043,21 +1279,13 @@
                  "std::is_pod and std::is_pod_v are deprecated in C++20. "                                          \
                  "The std::is_trivially_copyable and/or std::is_standard_layout traits likely suit your use case. " \
                  "You can define _SILENCE_CXX20_IS_POD_DEPRECATION_WARNING "                                        \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_IS_POD
 #endif // ^^^ warning disabled ^^^
 
-#if _HAS_CXX20 && !defined(_SILENCE_EXPERIMENTAL_ERASE_DEPRECATION_WARNING)
-#define _DEPRECATE_EXPERIMENTAL_ERASE                                                                                 \
-    [[deprecated("warning STL4026: "                                                                                  \
-                 "std::experimental::erase() and std::experimental::erase_if() are deprecated by Microsoft and will " \
-                 "be REMOVED. They are superseded by std::erase() and std::erase_if(). "                              \
-                 "You can define _SILENCE_EXPERIMENTAL_ERASE_DEPRECATION_WARNING to acknowledge that you have "       \
-                 "received this warning.")]]
-#else // ^^^ warning enabled / warning disabled vvv
-#define _DEPRECATE_EXPERIMENTAL_ERASE
-#endif // ^^^ warning disabled ^^^
+// STL4026 was
+// "std::experimental::erase() and std::experimental::erase_if() are deprecated by Microsoft and will be REMOVED."
 
 // P0768R1 [depr.relops]
 #if _HAS_CXX20 && !defined(_SILENCE_CXX20_REL_OPS_DEPRECATION_WARNING) \
@@ -1067,7 +1295,7 @@
                  "The namespace std::rel_ops and its contents are deprecated in C++20. "                              \
                  "Their use is superseded by C++20's <=> operator and automatic rewrites of relational expressions. " \
                  "You can define _SILENCE_CXX20_REL_OPS_DEPRECATION_WARNING or "                                      \
-                 "_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_REL_OPS
 #endif // ^^^ warning disabled ^^^
@@ -1079,7 +1307,7 @@
                  "std::atomic_init() overloads are deprecated in C++20. "             \
                  "The constructors of std::atomic provide equivalent functionality. " \
                  "You can define _SILENCE_CXX20_ATOMIC_INIT_DEPRECATION_WARNING "     \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_ATOMIC_INIT
 #endif // ^^^ warning disabled ^^^
@@ -1091,7 +1319,7 @@
                  "std::atomic_*() overloads for shared_ptr are deprecated in C++20. "               \
                  "The shared_ptr specialization of std::atomic provides superior functionality. "   \
                  "You can define _SILENCE_CXX20_OLD_SHARED_PTR_ATOMIC_SUPPORT_DEPRECATION_WARNING " \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_OLD_SHARED_PTR_ATOMIC_SUPPORT
 #endif // ^^^ warning disabled ^^^
@@ -1102,7 +1330,7 @@
     [[deprecated("warning STL4030: "                                                                \
                  "Some operations on volatile-qualified types in the STL are deprecated in C++20. " \
                  "You can define _SILENCE_CXX20_VOLATILE_DEPRECATION_WARNING "                      \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_VOLATILE
 #endif // ^^^ warning disabled ^^^
@@ -1113,22 +1341,12 @@
     [[deprecated("warning STL4031: "                                                      \
                  "std::move_iterator::operator->() is deprecated in C++20. "              \
                  "You can define _SILENCE_CXX20_MOVE_ITERATOR_ARROW_DEPRECATION_WARNING " \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_MOVE_ITERATOR_ARROW
 #endif // ^^^ warning disabled ^^^
 
-#if _HAS_CXX17 && !defined(_SILENCE_CXX17_POLYMORPHIC_ALLOCATOR_DESTROY_DEPRECATION_WARNING) \
-    && !defined(_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
-#define _CXX17_DEPRECATE_POLYMORPHIC_ALLOCATOR_DESTROY                                                   \
-    [[deprecated("warning STL4032: "                                                                     \
-                 "std::pmr::polymorphic_allocator::destroy() is deprecated in C++17 by LWG-3036. "       \
-                 "Prefer std::destroy_at() or std::allocator_traits<polymorphic_allocator>::destroy(). " \
-                 "You can define _SILENCE_CXX17_POLYMORPHIC_ALLOCATOR_DESTROY_DEPRECATION_WARNING "      \
-                 "or _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
-#else // ^^^ warning enabled / warning disabled vvv
-#define _CXX17_DEPRECATE_POLYMORPHIC_ALLOCATOR_DESTROY
-#endif // ^^^ warning disabled ^^^
+// STL4032 was "std::pmr::polymorphic_allocator::destroy() is deprecated in C++17 by LWG-3036." (reverted by P2875R4)
 
 #if _HAS_CXX20 && !defined(_SILENCE_CXX20_IS_ALWAYS_EQUAL_DEPRECATION_WARNING) \
     && !defined(_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS)
@@ -1137,7 +1355,7 @@
                  "std::allocator::is_always_equal is deprecated in C++20 by LWG-3170. " \
                  "Prefer std::allocator_traits<allocator<T>>::is_always_equal. "        \
                  "You can define _SILENCE_CXX20_IS_ALWAYS_EQUAL_DEPRECATION_WARNING "   \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_DEPRECATE_IS_ALWAYS_EQUAL
 #endif // ^^^ warning disabled ^^^
@@ -1149,7 +1367,7 @@
                  "std::aligned_storage and std::aligned_storage_t are deprecated in C++23. " \
                  "Prefer alignas(T) std::byte t_buff[sizeof(T)]. "                           \
                  "You can define _SILENCE_CXX23_ALIGNED_STORAGE_DEPRECATION_WARNING "        \
-                 "or _SILENCE_ALL_CXX23_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX23_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX23_DEPRECATE_ALIGNED_STORAGE
 #endif // ^^^ warning disabled ^^^
@@ -1161,7 +1379,7 @@
                  "std::aligned_union and std::aligned_union_t are deprecated in C++23. " \
                  "Prefer alignas(Ts...) std::byte t_buff[std::max({sizeof(Ts)...})]. "   \
                  "You can define _SILENCE_CXX23_ALIGNED_UNION_DEPRECATION_WARNING "      \
-                 "or _SILENCE_ALL_CXX23_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX23_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX23_DEPRECATE_ALIGNED_UNION
 #endif // ^^^ warning disabled ^^^
@@ -1171,7 +1389,7 @@
     [[deprecated("warning STL4036: "                                      \
                  "<ciso646> is removed in C++20. "                        \
                  "You can define _SILENCE_CXX20_CISO646_REMOVED_WARNING " \
-                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to acknowledge that you have received this warning.")]]
+                 "or _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _CXX20_REMOVE_CISO646
 #endif // ^^^ warning disabled ^^^
@@ -1182,57 +1400,136 @@
                  "The effect of instantiating the template std::complex for any "      \
                  "type other than float, double, or long double is unspecified. "      \
                  "You can define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING to " \
-                 "acknowledge that you have received this warning.")]]
+                 "suppress this warning.")]]
 #else // ^^^ warning enabled / warning disabled vvv
 #define _DEPRECATE_NONFLOATING_COMPLEX
 #endif // ^^^ warning disabled ^^^
 
-// next warning number: STL4038
+// STL4038 is used to warn that "The contents of <meow> are available only with C++NN or later."
+
+// STL4039 is used to warn that "The contents of <coroutine> are not available with /await."
+
+// STL4040 is used to warn that "The contents of <any> require static RTTI."
+
+#if _HAS_CXX23 && !defined(_SILENCE_CXX23_UNIX_STREAMS_DEPRECATION_WARNING) \
+    && !defined(_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS)
+#define _CXX23_DEPRECATE_UNIX_STREAMS                                                                                  \
+    [[deprecated(                                                                                                      \
+        "warning STL4041: "                                                                                            \
+        "std::errc enumerators std::errc::no_message_available, std::errc::no_stream_resources, "                      \
+        "std::errc::not_a_stream, and std::errc::stream_timeout and their corresponding errno macros ENODATA, ENOSR, " \
+        "ENOSTR, and ETIME are deprecated in C++23 by LWG-3869. These errno macros are deprecated in POSIX 2008 and "  \
+        "removed in POSIX 202x. You can define _SILENCE_CXX23_UNIX_STREAMS_DEPRECATION_WARNING or "                    \
+        "_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS to suppress this warning.")]]
+#else // ^^^ warning enabled / warning disabled vvv
+#define _CXX23_DEPRECATE_UNIX_STREAMS
+#endif // ^^^ warning disabled ^^^
+
+#if _HAS_CXX23 && !defined(_SILENCE_CXX23_DENORM_DEPRECATION_WARNING) \
+    && !defined(_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS)
+#define _CXX23_DEPRECATE_DENORM                                                                                        \
+    [[deprecated("warning STL4042: "                                                                                   \
+                 "std::float_denorm_style, std::numeric_limits::has_denorm, and std::numeric_limits::has_denorm_loss " \
+                 "are deprecated in C++23. You can define _SILENCE_CXX23_DENORM_DEPRECATION_WARNING or "               \
+                 "_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS to suppress this warning.")]]
+#else // ^^^ warning enabled / warning disabled vvv
+#define _CXX23_DEPRECATE_DENORM
+#endif // ^^^ warning disabled ^^^
+
+#if !defined(_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING) && !defined(_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
+#define _DEPRECATE_STDEXT_ARR_ITERS                                                                               \
+    [[deprecated(                                                                                                 \
+        "warning STL4043: stdext::checked_array_iterator, stdext::unchecked_array_iterator, and related factory " \
+        "functions are non-Standard extensions and will be removed in the future. std::span (since C++20) and "   \
+        "gsl::span can be used instead. You can define _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING or "         \
+        "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS to suppress this warning.")]]
+#else // ^^^ warning enabled / warning disabled vvv
+#define _DEPRECATE_STDEXT_ARR_ITERS
+#endif // ^^^ warning disabled ^^^
+
+// STL4044 was "The contents of the stdext::cvt namespace are non-Standard extensions and will be removed"
+
+#if !defined(_SILENCE_IO_PFX_SFX_DEPRECATION_WARNING) && !defined(_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
+#define _DEPRECATE_IO_PFX_SFX                                                                                          \
+    [[deprecated(                                                                                                      \
+        "warning STL4045: The ipfx(), isfx(), opfx(), and osfx() functions are removed before C++98 (see WG21-N0794) " \
+        "but kept as non-Standard extensions. They will be removed in the future, and the member classes sentry "      \
+        "should be used instead. You can define _SILENCE_IO_PFX_SFX_DEPRECATION_WARNING or "                           \
+        "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS to suppress this warning.")]]
+#else // ^^^ warning enabled / warning disabled vvv
+#define _DEPRECATE_IO_PFX_SFX
+#endif // ^^^ warning disabled ^^^
+
+#if !defined(_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING) && !defined(_SILENCE_TR1_RANDOM_DEPRECATION_WARNING) \
+    && !defined(_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS)
+#define _DEPRECATE_TR1_RANDOM                                                                                          \
+    [[deprecated("warning STL4046: Non-Standard TR1 components in <random> are deprecated and will be REMOVED. You "   \
+                 "can define _SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING, _SILENCE_TR1_RANDOM_DEPRECATION_WARNING, or " \
+                 "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS to suppress this warning.")]]
+#else // ^^^ warning enabled / warning disabled vvv
+#define _DEPRECATE_TR1_RANDOM
+#endif // ^^^ warning disabled ^^^
+
+#if _HAS_CXX20 && defined(__cpp_char8_t) && !defined(_SILENCE_CXX20_CODECVT_CHAR8_T_FACETS_DEPRECATION_WARNING) \
+    && !defined(_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS)
+#define _CXX20_DEPRECATE_CODECVT_CHAR8_T_FACETS                                                                     \
+    [[deprecated(                                                                                                   \
+        "warning STL4047: std::codecvt<char16_t, char8_t, mbstate_t>, std::codecvt<char32_t, char8_t, mbstate_t>, " \
+        "std::codecvt_byname<char16_t, char8_t, mbstate_t>, and std::codecvt_byname<char32_t, char8_t, mbstate_t> " \
+        "are deprecated by LWG-3767. You can define _SILENCE_CXX20_CODECVT_CHAR8_T_FACETS_DEPRECATION_WARNING or "  \
+        "_SILENCE_ALL_CXX20_DEPRECATION_WARNINGS to suppress this warning.")]]
+#else // ^^^ warning enabled / warning disabled vvv
+#define _CXX20_DEPRECATE_CODECVT_CHAR8_T_FACETS
+#endif // ^^^ warning disabled ^^^
+
+// next warning number: STL4048
+
+// next error number: STL1006
 
 // P0619R4 Removing C++17-Deprecated Features
 #ifndef _HAS_FEATURES_REMOVED_IN_CXX20
 #define _HAS_FEATURES_REMOVED_IN_CXX20 (!_HAS_CXX20)
-#endif // _HAS_FEATURES_REMOVED_IN_CXX20
+#endif // !defined(_HAS_FEATURES_REMOVED_IN_CXX20)
 
 #ifndef _HAS_DEPRECATED_ADAPTOR_TYPEDEFS
 #define _HAS_DEPRECATED_ADAPTOR_TYPEDEFS (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_ADAPTOR_TYPEDEFS
+#endif // !defined(_HAS_DEPRECATED_ADAPTOR_TYPEDEFS)
 
 #ifndef _HAS_DEPRECATED_ALLOCATOR_MEMBERS
 #define _HAS_DEPRECATED_ALLOCATOR_MEMBERS (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_ALLOCATOR_MEMBERS
+#endif // !defined(_HAS_DEPRECATED_ALLOCATOR_MEMBERS)
 
 #ifndef _HAS_DEPRECATED_ALLOCATOR_VOID
 #define _HAS_DEPRECATED_ALLOCATOR_VOID (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_ALLOCATOR_VOID
+#endif // !defined(_HAS_DEPRECATED_ALLOCATOR_VOID)
 
 #ifndef _HAS_DEPRECATED_IS_LITERAL_TYPE
 #define _HAS_DEPRECATED_IS_LITERAL_TYPE (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_IS_LITERAL_TYPE
+#endif // !defined(_HAS_DEPRECATED_IS_LITERAL_TYPE)
 
 #ifndef _HAS_DEPRECATED_NEGATORS
 #define _HAS_DEPRECATED_NEGATORS (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_NEGATORS
+#endif // !defined(_HAS_DEPRECATED_NEGATORS)
 
 #ifndef _HAS_DEPRECATED_RAW_STORAGE_ITERATOR
 #define _HAS_DEPRECATED_RAW_STORAGE_ITERATOR (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_RAW_STORAGE_ITERATOR
+#endif // !defined(_HAS_DEPRECATED_RAW_STORAGE_ITERATOR)
 
 #ifndef _HAS_DEPRECATED_RESULT_OF
 #define _HAS_DEPRECATED_RESULT_OF (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_RESULT_OF
+#endif // !defined(_HAS_DEPRECATED_RESULT_OF)
 
 #ifndef _HAS_DEPRECATED_SHARED_PTR_UNIQUE
 #define _HAS_DEPRECATED_SHARED_PTR_UNIQUE (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_SHARED_PTR_UNIQUE
+#endif // !defined(_HAS_DEPRECATED_SHARED_PTR_UNIQUE)
 
 #ifndef _HAS_DEPRECATED_TEMPORARY_BUFFER
 #define _HAS_DEPRECATED_TEMPORARY_BUFFER (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_TEMPORARY_BUFFER
+#endif // !defined(_HAS_DEPRECATED_TEMPORARY_BUFFER)
 
 #ifndef _HAS_DEPRECATED_UNCAUGHT_EXCEPTION
 #define _HAS_DEPRECATED_UNCAUGHT_EXCEPTION (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_DEPRECATED_UNCAUGHT_EXCEPTION
+#endif // !defined(_HAS_DEPRECATED_UNCAUGHT_EXCEPTION)
 
 #if _HAS_DEPRECATED_ADAPTOR_TYPEDEFS
 #define _ARGUMENT_TYPE_NAME        argument_type
@@ -1244,42 +1541,54 @@
 #define _FIRST_ARGUMENT_TYPE_NAME  _Unnameable_first_argument
 #define _SECOND_ARGUMENT_TYPE_NAME _Unnameable_second_argument
 #define _RESULT_TYPE_NAME          _Unnameable_result
-#endif // !_HAS_DEPRECATED_ADAPTOR_TYPEDEFS
+#endif // ^^^ !_HAS_DEPRECATED_ADAPTOR_TYPEDEFS ^^^
 
 // P1423R3 char8_t Backward Compatibility Remediation
 // Controls whether we allow the stream insertions this proposal forbids
 #ifndef _HAS_STREAM_INSERTION_OPERATORS_DELETED_IN_CXX20
 #define _HAS_STREAM_INSERTION_OPERATORS_DELETED_IN_CXX20 (_HAS_FEATURES_REMOVED_IN_CXX20)
-#endif // _HAS_STREAM_INSERTION_OPERATORS_DELETED_IN_CXX20
-
+#endif // !defined(_HAS_STREAM_INSERTION_OPERATORS_DELETED_IN_CXX20)
 
 #ifndef _HAS_FEATURES_REMOVED_IN_CXX23
 #define _HAS_FEATURES_REMOVED_IN_CXX23 (!_HAS_CXX23)
-#endif // _HAS_FEATURES_REMOVED_IN_CXX23
+#endif // !defined(_HAS_FEATURES_REMOVED_IN_CXX23)
 
 // P2186R2 Removing Garbage Collection Support
 #ifndef _HAS_GARBAGE_COLLECTION_SUPPORT_DELETED_IN_CXX23
 #define _HAS_GARBAGE_COLLECTION_SUPPORT_DELETED_IN_CXX23 (_HAS_FEATURES_REMOVED_IN_CXX23)
-#endif // _HAS_GARBAGE_COLLECTION_SUPPORT_DELETED_IN_CXX23
+#endif // !defined(_HAS_GARBAGE_COLLECTION_SUPPORT_DELETED_IN_CXX23)
 
 // C++14
-#define __cpp_lib_chrono_udls                 201304L
-#define __cpp_lib_complex_udls                201309L
-#define __cpp_lib_exchange_function           201304L
-#define __cpp_lib_generic_associative_lookup  201304L
-#define __cpp_lib_integer_sequence            201304L
-#define __cpp_lib_integral_constant_callable  201304L
-#define __cpp_lib_is_final                    201402L
-#define __cpp_lib_is_null_pointer             201309L
-#define __cpp_lib_make_reverse_iterator       201402L
-#define __cpp_lib_make_unique                 201304L
-#define __cpp_lib_null_iterators              201304L
-#define __cpp_lib_quoted_string_io            201304L
-#define __cpp_lib_result_of_sfinae            201210L
-#define __cpp_lib_robust_nonmodifying_seq_ops 201304L
-#ifndef _M_CEE
+#define __cpp_lib_chrono_udls                      201304L
+#define __cpp_lib_complex_udls                     201309L
+#define __cpp_lib_exchange_function                201304L
+#define __cpp_lib_freestanding_char_traits         202306L
+#define __cpp_lib_freestanding_cstdlib             202306L
+#define __cpp_lib_freestanding_cstring             202311L
+#define __cpp_lib_freestanding_cwchar              202306L
+#define __cpp_lib_freestanding_errc                202306L
+#define __cpp_lib_freestanding_feature_test_macros 202306L
+#define __cpp_lib_freestanding_functional          202306L
+#define __cpp_lib_freestanding_iterator            202306L
+#define __cpp_lib_freestanding_memory              202306L
+#define __cpp_lib_freestanding_operator_new        202306L
+#define __cpp_lib_freestanding_ratio               202306L
+#define __cpp_lib_freestanding_tuple               202306L
+#define __cpp_lib_freestanding_utility             202306L
+#define __cpp_lib_generic_associative_lookup       201304L
+#define __cpp_lib_integer_sequence                 201304L
+#define __cpp_lib_integral_constant_callable       201304L
+#define __cpp_lib_is_final                         201402L
+#define __cpp_lib_is_null_pointer                  201309L
+#define __cpp_lib_make_reverse_iterator            201402L
+#define __cpp_lib_make_unique                      201304L
+#define __cpp_lib_null_iterators                   201304L
+#define __cpp_lib_quoted_string_io                 201304L
+#define __cpp_lib_result_of_sfinae                 201210L
+#define __cpp_lib_robust_nonmodifying_seq_ops      201304L
+#ifndef _M_CEE_PURE
 #define __cpp_lib_shared_timed_mutex 201402L
-#endif // _M_CEE
+#endif // !defined(_M_CEE_PURE)
 #define __cpp_lib_string_udls                  201304L
 #define __cpp_lib_transformation_trait_aliases 201304L
 #define __cpp_lib_tuple_element_t              201402L
@@ -1304,7 +1613,9 @@
 #define __cpp_lib_void_t                           201411L
 
 #if _HAS_CXX17
-#define __cpp_lib_any                        201606L
+#if _HAS_STATIC_RTTI
+#define __cpp_lib_any 201606L
+#endif // _HAS_STATIC_RTTI
 #define __cpp_lib_apply                      201603L
 #define __cpp_lib_atomic_is_always_lock_free 201603L
 #define __cpp_lib_boyer_moore_searcher       201603L
@@ -1313,6 +1624,7 @@
 #endif // _HAS_STD_BYTE
 #define __cpp_lib_clamp                             201603L
 #define __cpp_lib_filesystem                        201703L
+#define __cpp_lib_freestanding_charconv             202306L
 #define __cpp_lib_gcd_lcm                           201606L
 #define __cpp_lib_hardware_interference_size        201703L
 #define __cpp_lib_has_unique_object_representations 201606L
@@ -1326,9 +1638,9 @@
 #define __cpp_lib_memory_resource                   201603L
 #define __cpp_lib_node_extract                      201606L
 #define __cpp_lib_not_fn                            201603L
-#ifndef _M_CEE
+#ifndef _M_CEE_PURE
 #define __cpp_lib_parallel_algorithm 201603L
-#endif // _M_CEE
+#endif // !defined(_M_CEE_PURE)
 #define __cpp_lib_raw_memory_algorithms 201606L
 #define __cpp_lib_sample                201603L
 #define __cpp_lib_scoped_lock           201703L
@@ -1342,233 +1654,269 @@
 
 #ifdef __cpp_char8_t
 #define __cpp_lib_char8_t 201907L
-#endif // __cpp_char8_t
+#endif // defined(__cpp_char8_t)
 
 #ifdef __cpp_impl_coroutine
 #define __cpp_lib_coroutine 201902L
-#endif // __cpp_impl_coroutine
+#endif // defined(__cpp_impl_coroutine)
 
 #if _HAS_CXX20
-#define __cpp_lib_assume_aligned                201811L
-#define __cpp_lib_atomic_flag_test              201907L
-#define __cpp_lib_atomic_float                  201711L
-#define __cpp_lib_atomic_lock_free_type_aliases 201907L
-#define __cpp_lib_atomic_ref                    201806L
-#define __cpp_lib_atomic_shared_ptr             201711L
-#define __cpp_lib_atomic_wait                   201907L
-#define __cpp_lib_barrier                       201907L
-#define __cpp_lib_bind_front                    201907L
-#define __cpp_lib_bit_cast                      201806L
-#define __cpp_lib_bitops                        201907L
-#define __cpp_lib_bounded_array_traits          201902L
+#define __cpp_lib_algorithm_iterator_requirements 202207L
+#define __cpp_lib_assume_aligned                  201811L
+#define __cpp_lib_atomic_flag_test                201907L
+#define __cpp_lib_atomic_float                    201711L
+#define __cpp_lib_atomic_lock_free_type_aliases   201907L
+#define __cpp_lib_atomic_ref                      201806L
+#define __cpp_lib_atomic_shared_ptr               201711L
+#define __cpp_lib_atomic_wait                     201907L
+#define __cpp_lib_barrier                         202302L
+#define __cpp_lib_bind_front                      201907L
+#define __cpp_lib_bit_cast                        201806L
+#define __cpp_lib_bitops                          201907L
+#define __cpp_lib_bounded_array_traits            201902L
+#define __cpp_lib_common_reference                202302L
+#define __cpp_lib_common_reference_wrapper        202302L
+#define __cpp_lib_constexpr_algorithms            201806L
+#define __cpp_lib_constexpr_complex               201711L
+#define __cpp_lib_constexpr_dynamic_alloc         201907L
+#define __cpp_lib_constexpr_functional            201907L
+#define __cpp_lib_constexpr_iterator              201811L
+#define __cpp_lib_constexpr_numeric               201911L
+#define __cpp_lib_constexpr_string                201907L
+#define __cpp_lib_constexpr_string_view           201811L
+#define __cpp_lib_constexpr_tuple                 201811L
+#define __cpp_lib_constexpr_utility               201811L
+#define __cpp_lib_constexpr_vector                201907L
+#define __cpp_lib_destroying_delete               201806L
+#define __cpp_lib_endian                          201907L
+#define __cpp_lib_erase_if                        202002L
+#define __cpp_lib_format                          202304L
+#define __cpp_lib_format_uchar                    202311L
+#define __cpp_lib_freestanding_ranges             202306L
+#define __cpp_lib_generic_unordered_lookup        201811L
+#define __cpp_lib_int_pow2                        202002L
+#define __cpp_lib_integer_comparison_functions    202002L
+#define __cpp_lib_interpolate                     201902L
+#define __cpp_lib_is_constant_evaluated           201811L
 
-#if !defined(__EDG__) || defined(__INTELLISENSE__) // TRANSITION, EDG concepts support
-#define __cpp_lib_concepts 202002L
-#endif // !defined(__EDG__) || defined(__INTELLISENSE__)
-
-#define __cpp_lib_constexpr_algorithms    201806L
-#define __cpp_lib_constexpr_complex       201711L
-#define __cpp_lib_constexpr_dynamic_alloc 201907L
-#define __cpp_lib_constexpr_functional    201907L
-#define __cpp_lib_constexpr_iterator      201811L
-#define __cpp_lib_constexpr_numeric       201911L
-#define __cpp_lib_constexpr_string        201907L
-#define __cpp_lib_constexpr_string_view   201811L
-#define __cpp_lib_constexpr_tuple         201811L
-#define __cpp_lib_constexpr_utility       201811L
-#define __cpp_lib_constexpr_vector        201907L
-#define __cpp_lib_destroying_delete       201806L
-#define __cpp_lib_endian                  201907L
-#define __cpp_lib_erase_if                202002L
-
-#if defined(__cpp_lib_concepts) // TRANSITION, GH-395
-#define __cpp_lib_format 202110L
-#endif // defined(__cpp_lib_concepts)
-
-#define __cpp_lib_generic_unordered_lookup     201811L
-#define __cpp_lib_int_pow2                     202002L
-#define __cpp_lib_integer_comparison_functions 202002L
-#define __cpp_lib_interpolate                  201902L
-#define __cpp_lib_is_constant_evaluated        201811L
-
-#ifndef __EDG__ // TRANSITION, VSO-1268984
 #ifndef __clang__ // TRANSITION, LLVM-48860
 #define __cpp_lib_is_layout_compatible 201907L
-#endif // __clang__
-#endif // __EDG__
+#endif // ^^^ no workaround ^^^
 
 #define __cpp_lib_is_nothrow_convertible 201806L
 
-#ifndef __EDG__ // TRANSITION, VSO-1268984
 #ifndef __clang__ // TRANSITION, LLVM-48860
 #define __cpp_lib_is_pointer_interconvertible 201907L
-#endif // __clang__
-#endif // __EDG__
+#endif // ^^^ no workaround ^^^
 
 #define __cpp_lib_jthread                 201911L
 #define __cpp_lib_latch                   201907L
 #define __cpp_lib_list_remove_return_type 201806L
 #define __cpp_lib_math_constants          201907L
+
+#if !defined(__clang__) && !defined(__EDG__) // TRANSITION, Clang and EDG support for modules
+#define __cpp_lib_modules 202207L
+#endif // ^^^ no workaround ^^^
+
+#define __cpp_lib_move_iterator_concept   202207L
 #define __cpp_lib_polymorphic_allocator   201902L
-
-#if defined(__cpp_lib_concepts) // TRANSITION, GH-395
-#define __cpp_lib_ranges 202110L
-#endif // defined(__cpp_lib_concepts)
-
 #define __cpp_lib_remove_cvref            201711L
 #define __cpp_lib_semaphore               201907L
 #define __cpp_lib_smart_ptr_for_overwrite 202002L
-
-#ifdef __cpp_consteval
-#define __cpp_lib_source_location 201907L
-#endif // __cpp_consteval
-
-#define __cpp_lib_span             202002L
-#define __cpp_lib_ssize            201902L
-#define __cpp_lib_starts_ends_with 201711L
-#define __cpp_lib_syncbuf          201803L
-
-#ifdef __cpp_lib_concepts // TRANSITION, GH-395
-#define __cpp_lib_three_way_comparison 201907L
-#endif // __cpp_lib_concepts
-
-#define __cpp_lib_to_address    201711L
-#define __cpp_lib_to_array      201907L
-#define __cpp_lib_type_identity 201806L
-#define __cpp_lib_unwrap_ref    201811L
+#define __cpp_lib_source_location         201907L
+#define __cpp_lib_span                    202002L
+#define __cpp_lib_ssize                   201902L
+#define __cpp_lib_starts_ends_with        201711L
+#define __cpp_lib_syncbuf                 201803L
+#define __cpp_lib_three_way_comparison    201907L
+#define __cpp_lib_to_address              201711L
+#define __cpp_lib_to_array                201907L
+#define __cpp_lib_type_identity           201806L
+#define __cpp_lib_unwrap_ref              201811L
 #endif // _HAS_CXX20
 
 // C++23
 #if _HAS_CXX23
 #define __cpp_lib_adaptor_iterator_pair_constructor 202106L
-
-#ifdef __cpp_lib_concepts
-#define __cpp_lib_allocate_at_least 202106L
-#endif // __cpp_lib_concepts
-
+#define __cpp_lib_allocate_at_least                 202302L
 #define __cpp_lib_associative_heterogeneous_erasure 202110L
+#define __cpp_lib_bind_back                         202202L
 #define __cpp_lib_byteswap                          202110L
+#define __cpp_lib_constexpr_bitset                  202207L
+#define __cpp_lib_constexpr_charconv                202207L
 #define __cpp_lib_constexpr_typeinfo                202106L
-
-#ifdef __cpp_lib_concepts
-#define __cpp_lib_expected 202202L
-#endif // __cpp_lib_concepts
-
-#define __cpp_lib_invoke_r           202106L
-#define __cpp_lib_is_scoped_enum     202011L
-#define __cpp_lib_move_only_function 202110L
-
-#ifdef __cpp_lib_concepts
-#define __cpp_lib_out_ptr                 202106L
-#define __cpp_lib_ranges_chunk            202202L
-#define __cpp_lib_ranges_chunk_by         202202L
-#define __cpp_lib_ranges_iota             202202L
-#define __cpp_lib_ranges_join_with        202202L
-#define __cpp_lib_ranges_slide            202202L
-#define __cpp_lib_ranges_starts_ends_with 202106L
-#endif // __cpp_lib_concepts
-
-#define __cpp_lib_spanstream                  202106L
-#define __cpp_lib_stacktrace                  202011L
-#define __cpp_lib_stdatomic_h                 202011L
-#define __cpp_lib_string_contains             202011L
-#define __cpp_lib_string_resize_and_overwrite 202110L
-#define __cpp_lib_to_underlying               202102L
-#define __cpp_lib_unreachable                 202202L
+#define __cpp_lib_containers_ranges                 202202L
+#define __cpp_lib_expected                          202211L
+#define __cpp_lib_formatters                        202302L
+#define __cpp_lib_forward_like                      202207L
+#define __cpp_lib_invoke_r                          202106L
+#define __cpp_lib_ios_noreplace                     202207L
+#define __cpp_lib_is_scoped_enum                    202011L
+#define __cpp_lib_mdspan                            202207L
+#define __cpp_lib_move_only_function                202110L
+#define __cpp_lib_out_ptr                           202106L
+#define __cpp_lib_print                             202207L
+#define __cpp_lib_ranges_as_const                   202311L
+#define __cpp_lib_ranges_as_rvalue                  202207L
+#define __cpp_lib_ranges_cartesian_product          202207L
+#define __cpp_lib_ranges_chunk                      202202L
+#define __cpp_lib_ranges_chunk_by                   202202L
+#define __cpp_lib_ranges_contains                   202207L
+#define __cpp_lib_ranges_enumerate                  202302L
+#define __cpp_lib_ranges_find_last                  202207L
+#define __cpp_lib_ranges_fold                       202207L
+#define __cpp_lib_ranges_iota                       202202L
+#define __cpp_lib_ranges_join_with                  202202L
+#define __cpp_lib_ranges_repeat                     202207L
+#define __cpp_lib_ranges_slide                      202202L
+#define __cpp_lib_ranges_starts_ends_with           202106L
+#define __cpp_lib_ranges_stride                     202207L
+#define __cpp_lib_ranges_to_container               202202L
+#define __cpp_lib_ranges_zip                        202110L
+#define __cpp_lib_spanstream                        202106L
+#define __cpp_lib_stacktrace                        202011L
+#define __cpp_lib_stdatomic_h                       202011L
+#define __cpp_lib_string_contains                   202011L
+#define __cpp_lib_string_resize_and_overwrite       202110L
+#define __cpp_lib_to_underlying                     202102L
+#define __cpp_lib_tuple_like                        202207L
+#define __cpp_lib_unreachable                       202202L
 #endif // _HAS_CXX23
 
 // macros with language mode sensitivity
 #if _HAS_CXX20
 #define __cpp_lib_array_constexpr 201811L // P1032R1 Miscellaneous constexpr
-#elif _HAS_CXX17 // ^^^ _HAS_CXX20 / _HAS_CXX17 vvv
+#elif _HAS_CXX17
 #define __cpp_lib_array_constexpr 201803L // P0858R0 Constexpr Iterator Requirements
-#endif // _HAS_CXX17
+#endif
 
-#if _HAS_CXX20 && defined(__cpp_lib_concepts) // TRANSITION, GH-395
+#if _HAS_CXX20
 #define __cpp_lib_chrono 201907L // P1466R3 Miscellaneous Minor Fixes For <chrono>
 #elif _HAS_CXX17
 #define __cpp_lib_chrono 201611L // P0505R0 constexpr For <chrono> (Again)
-#else // _HAS_CXX17
+#else
 #define __cpp_lib_chrono 201510L // P0092R1 <chrono> floor(), ceil(), round(), abs()
-#endif // _HAS_CXX17
+#endif
+
+#if _HAS_CXX23
+#define __cpp_lib_concepts 202207L // P2404R3 Move-Only Types For Comparison Concepts
+#elif _HAS_CXX20
+#define __cpp_lib_concepts 202002L // P1964R2 Replacing boolean With boolean-testable
+#endif
 
 #if _HAS_CXX23
 #define __cpp_lib_constexpr_memory 202202L // P2273R3 constexpr unique_ptr
 #elif _HAS_CXX20
 #define __cpp_lib_constexpr_memory 201811L // P1006R1 constexpr For pointer_traits<T*>::pointer_to()
-#endif // _HAS_CXX20
+#endif
 
-#ifndef _M_CEE
+#ifndef _M_CEE_PURE
 #if _HAS_CXX20
 #define __cpp_lib_execution 201902L // P1001R2 execution::unseq
 #elif _HAS_CXX17
 #define __cpp_lib_execution 201603L // P0024R2 Parallel Algorithms
 #endif // language mode
-#endif // _M_CEE
+#endif // !defined(_M_CEE_PURE)
 
-#if _HAS_CXX23 && defined(__cpp_lib_concepts)
+#if _HAS_CXX23
 #define __cpp_lib_optional 202110L // P0798R8 Monadic Operations For optional
-#elif _HAS_CXX20 // ^^^ _HAS_CXX23 / _HAS_CXX20 vvv
+#elif _HAS_CXX20
 #define __cpp_lib_optional 202106L // P2231R1 Completing constexpr In optional And variant
-#elif _HAS_CXX17 // ^^^ _HAS_CXX20 / _HAS_CXX17 vvv
+#elif _HAS_CXX17
 #define __cpp_lib_optional 201606L // P0307R2 Making Optional Greater Equal Again
-#endif // _HAS_CXX17
+#endif
+
+#if _HAS_CXX23
+#define __cpp_lib_ranges 202302L // P2609R3 Relaxing Ranges Just A Smidge
+#elif _HAS_CXX20
+#define __cpp_lib_ranges 202110L // P2415R2 What Is A view?
+#endif
 
 #if _HAS_CXX20
 #define __cpp_lib_shared_ptr_arrays 201707L // P0674R1 make_shared() For Arrays
-#else // _HAS_CXX20
+#else
 #define __cpp_lib_shared_ptr_arrays 201611L // P0497R0 Fixing shared_ptr For Arrays
-#endif // _HAS_CXX20
+#endif
 
-#if _HAS_CXX23 && defined(__cpp_lib_concepts)
+#if _HAS_CXX23
 #define __cpp_lib_shift 202202L // P2440R1 ranges::shift_left, ranges::shift_right
-#elif _HAS_CXX20 // ^^^ _HAS_CXX23 / _HAS_CXX20 vvv
+#elif _HAS_CXX20
 #define __cpp_lib_shift 201806L // P0769R2 shift_left(), shift_right()
-#endif // _HAS_CXX20
+#endif
 
 #if _HAS_CXX20
 #define __cpp_lib_variant 202106L // P2231R1 Completing constexpr In optional And variant
-#elif _HAS_CXX17 // ^^^ _HAS_CXX20 / _HAS_CXX17 vvv
+#elif _HAS_CXX17
 #define __cpp_lib_variant 202102L // P2162R2 Inheriting From variant
-#endif // _HAS_CXX17
+#endif
 
-#define __cpp_lib_experimental_erase_if   201411L
 #define __cpp_lib_experimental_filesystem 201406L
 
 #ifdef _RTC_CONVERSION_CHECKS_ENABLED
 #ifndef _ALLOW_RTCc_IN_STL
 #error /RTCc rejects conformant code, so it is not supported by the C++ Standard Library. Either remove this \
-compiler option, or define _ALLOW_RTCc_IN_STL to acknowledge that you have received this warning.
-#endif // _ALLOW_RTCc_IN_STL
-#endif // _RTC_CONVERSION_CHECKS_ENABLED
+compiler option, or define _ALLOW_RTCc_IN_STL to suppress this error.
+#endif // !defined(_ALLOW_RTCc_IN_STL)
+#endif // defined(_RTC_CONVERSION_CHECKS_ENABLED)
 
-#define _STRINGIZEX(x)  #x
-#define _STRINGIZE(x)   _STRINGIZEX(x)
 #define _EMPTY_ARGUMENT // for empty macro argument
 
-#define _STD_BEGIN namespace std {
-#define _STD_END   }
-#define _STD       ::std::
-#define _CHRONO    ::std::chrono::
-#define _RANGES    ::std::ranges::
+// extern "C++" attaches declarations to the global module, see N4964 [module.unit]/7.2.
+// It has no effect in C++14/17.
 
-// We use the stdext (standard extension) namespace to contain extensions that are not part of the current standard
-#define _STDEXT_BEGIN namespace stdext {
-#define _STDEXT_END   }
-#define _STDEXT       ::stdext::
+// In the STL's headers (which might be used to build the named module std), we unconditionally
+// and directly mark declarations of our separately compiled machinery as extern "C++", allowing
+// the named module to work with the separately compiled code (which is always built classically).
+
+// TRANSITION: _USE_EXTERN_CXX_EVERYWHERE_FOR_STL controls whether we also wrap the STL's
+// header-only code in this linkage-specification, as a temporary workaround to allow
+// importing the named module in a translation unit with classic includes.
+
+#ifndef _USE_EXTERN_CXX_EVERYWHERE_FOR_STL
+#define _USE_EXTERN_CXX_EVERYWHERE_FOR_STL _HAS_CXX20
+#endif // ^^^ !defined(_USE_EXTERN_CXX_EVERYWHERE_FOR_STL) ^^^
+
+#if _USE_EXTERN_CXX_EVERYWHERE_FOR_STL
+#define _EXTERN_CXX_WORKAROUND     extern "C++" {
+#define _END_EXTERN_CXX_WORKAROUND }
+#else // ^^^ _USE_EXTERN_CXX_EVERYWHERE_FOR_STL / !_USE_EXTERN_CXX_EVERYWHERE_FOR_STL vvv
+#define _EXTERN_CXX_WORKAROUND
+#define _END_EXTERN_CXX_WORKAROUND
+#endif // ^^^ !_USE_EXTERN_CXX_EVERYWHERE_FOR_STL ^^^
+
+#define _STD_BEGIN         \
+    _EXTERN_CXX_WORKAROUND \
+    namespace std {
+#define _STD_END \
+    }            \
+    _END_EXTERN_CXX_WORKAROUND
+
+#define _STD    ::std::
+#define _CHRONO ::std::chrono::
+#define _RANGES ::std::ranges::
+
+// We use the stdext (standard extension) namespace to contain non-standard extensions
+#pragma push_macro("stdext")
+#undef stdext
+#define _STDEXT_BEGIN      \
+    _EXTERN_CXX_WORKAROUND \
+    namespace stdext {
+#define _STDEXT_END \
+    }               \
+    _END_EXTERN_CXX_WORKAROUND
+
+#define _STDEXT ::stdext::
+#pragma pop_macro("stdext")
 
 #define _CSTD ::
-
-#define _EXTERN_C     extern "C" {
-#define _END_EXTERN_C }
 
 #ifdef _M_CEE_PURE
 #define _EXTERN_C_UNLESS_PURE
 #define _END_EXTERN_C_UNLESS_PURE
-#else // ^^^ _M_CEE_PURE / !_M_CEE_PURE vvv
-#define _EXTERN_C_UNLESS_PURE     _EXTERN_C
-#define _END_EXTERN_C_UNLESS_PURE _END_EXTERN_C
-#endif // _M_CEE_PURE
+#else // ^^^ defined(_M_CEE_PURE) / !defined(_M_CEE_PURE) vvv
+#define _EXTERN_C_UNLESS_PURE     extern "C" {
+#define _END_EXTERN_C_UNLESS_PURE } // extern "C"
+#endif // ^^^ !defined(_M_CEE_PURE) ^^^
 
 #if defined(MRTDLL) && !defined(_CRTBLD)
 #error In yvals_core.h, defined(MRTDLL) implies defined(_CRTBLD); !defined(_CRTBLD) implies !defined(MRTDLL)
@@ -1592,29 +1940,39 @@ compiler option, or define _ALLOW_RTCc_IN_STL to acknowledge that you have recei
 #elif defined(_M_ARM) || defined(_ONECORE) || defined(_CRT_APP)
 // The first ARM or OneCore or App Windows was Windows 8
 #define _STL_WIN32_WINNT _STL_WIN32_WINNT_WIN8
-#else // ^^^ default to Win8 // default to Win7 vvv
+#else // ^^^ default to Win8 / default to Win7 vvv
 // The earliest Windows supported by this implementation is Windows 7
 #define _STL_WIN32_WINNT _STL_WIN32_WINNT_WIN7
 #endif // ^^^ !defined(_M_ARM) && !defined(_M_ARM64) && !defined(_ONECORE) && !defined(_CRT_APP) ^^^
-#endif // _STL_WIN32_WINNT
+#endif // !defined(_STL_WIN32_WINNT)
 
 #ifdef __cpp_noexcept_function_type
 #define _NOEXCEPT_FNPTR noexcept
-#else
+#else // ^^^ defined(__cpp_noexcept_function_type) / !defined(__cpp_noexcept_function_type) vvv
 #define _NOEXCEPT_FNPTR
-#endif // __cpp_noexcept_function_type
+#endif // ^^^ !defined(__cpp_noexcept_function_type) ^^^
 
 #ifdef __clang__
-#define _STL_UNREACHABLE __builtin_unreachable()
-#else // ^^^ clang ^^^ / vvv other vvv
-#define _STL_UNREACHABLE __assume(false)
-#endif // __clang__
+#define _STL_INTRIN_HEADER <intrin.h>
+#define _STL_UNREACHABLE   __builtin_unreachable()
+#else // ^^^ defined(__clang__) / !defined(__clang__) vvv
+#define _STL_INTRIN_HEADER <intrin0.h>
+#define _STL_UNREACHABLE   __assume(false)
+#endif // ^^^ !defined(__clang__) ^^^
 
 #ifdef _ENABLE_STL_INTERNAL_CHECK
 #define _STL_INTERNAL_STATIC_ASSERT(...) static_assert(__VA_ARGS__, #__VA_ARGS__)
-#else // ^^^ _ENABLE_STL_INTERNAL_CHECK ^^^ // vvv !_ENABLE_STL_INTERNAL_CHECK vvv
+#else // ^^^ defined(_ENABLE_STL_INTERNAL_CHECK) / !defined(_ENABLE_STL_INTERNAL_CHECK) vvv
 #define _STL_INTERNAL_STATIC_ASSERT(...)
-#endif // _ENABLE_STL_INTERNAL_CHECK
+#endif // ^^^ !defined(_ENABLE_STL_INTERNAL_CHECK) ^^^
+
+#ifdef __cpp_static_call_operator
+#define _STATIC_CALL_OPERATOR static
+#define _CONST_CALL_OPERATOR
+#else // ^^^ defined(__cpp_static_call_operator) / !defined(__cpp_static_call_operator) vvv
+#define _STATIC_CALL_OPERATOR
+#define _CONST_CALL_OPERATOR const
+#endif // ^^^ !defined(__cpp_static_call_operator) ^^^
 
 #endif // _STL_COMPILER_PREPROCESSOR
 #endif // _YVALS_CORE_H_

@@ -5,12 +5,13 @@
 #define TEST_NAMEX "<cstdio>"
 
 #include "tdefs.h"
-#include "temp_file_name.h"
 #include <assert.h>
 #include <cstdio>
 #include <errno.h>
 #include <stdarg.h>
 #include <string.h>
+
+#include <temp_file_name.hpp>
 
 #undef clearerr // tested in stdio2.c
 #undef feof
@@ -184,8 +185,9 @@ void test_cpp() { // test C++ header
         assert((pf = STDx tmpfile()) != nullptr);
         CHECK_INT(STDx fputc('x', pf), 'x');
         errno = EDOM;
-        if (!terse)
+        if (!terse) {
             STDx perror("Domain error reported as");
+        }
     }
 }
 

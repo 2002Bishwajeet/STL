@@ -15,20 +15,20 @@ using namespace std;
 using P = pair<int, int>;
 
 // Validate that partial_sort_copy_result aliases in_out_result
-STATIC_ASSERT(same_as<ranges::partial_sort_copy_result<int, double>, ranges::in_out_result<int, double>>);
+static_assert(same_as<ranges::partial_sort_copy_result<int, double>, ranges::in_out_result<int, double>>);
 
 // Validate dangling story
-STATIC_ASSERT(same_as<decltype(ranges::partial_sort_copy(borrowed<false>{}, borrowed<false>{})),
+static_assert(same_as<decltype(ranges::partial_sort_copy(borrowed<false>{}, borrowed<false>{})),
     ranges::partial_sort_copy_result<ranges::dangling, ranges::dangling>>);
-STATIC_ASSERT(same_as<decltype(ranges::partial_sort_copy(borrowed<false>{}, borrowed<true>{})),
+static_assert(same_as<decltype(ranges::partial_sort_copy(borrowed<false>{}, borrowed<true>{})),
     ranges::partial_sort_copy_result<ranges::dangling, int*>>);
-STATIC_ASSERT(same_as<decltype(ranges::partial_sort_copy(borrowed<true>{}, borrowed<false>{})),
+static_assert(same_as<decltype(ranges::partial_sort_copy(borrowed<true>{}, borrowed<false>{})),
     ranges::partial_sort_copy_result<int*, ranges::dangling>>);
-STATIC_ASSERT(same_as<decltype(ranges::partial_sort_copy(borrowed<true>{}, borrowed<true>{})),
+static_assert(same_as<decltype(ranges::partial_sort_copy(borrowed<true>{}, borrowed<true>{})),
     ranges::partial_sort_copy_result<int*, int*>>);
 
-constexpr P source[]   = {{5, 11}, {1, 12}, {3, 13}, {4, 15}, {0, 16}, {2, 17}};
-constexpr P expected[] = {{0, 16}, {1, 12}, {2, 17}, {3, 13}, {4, 15}, {5, 11}};
+constexpr P source[]        = {{5, 11}, {1, 12}, {3, 13}, {4, 15}, {0, 16}, {2, 17}};
+constexpr P expected_vals[] = {{0, 16}, {1, 12}, {2, 17}, {3, 13}, {4, 15}, {5, 11}};
 
 struct instantiator1 {
     template <ranges::input_range In, ranges::random_access_range Out>
@@ -48,7 +48,7 @@ struct instantiator1 {
                 assert(result.in == range1.end());
                 const auto n = min(i, int{size(source)});
                 assert(result.out == range2.begin() + n);
-                assert(equal(range2.begin(), range2.begin() + n, expected, expected + n));
+                assert(equal(range2.begin(), range2.begin() + n, expected_vals, expected_vals + n));
             }
 
             // also with empty input
@@ -81,7 +81,7 @@ struct instantiator2 {
                 assert(result.in == range1.end());
                 const auto n = min(i, int{size(source)});
                 assert(result.out == range2.begin() + n);
-                assert(equal(range2.begin(), range2.begin() + n, expected, expected + n));
+                assert(equal(range2.begin(), range2.begin() + n, expected_vals, expected_vals + n));
             }
 
             // also with empty input
@@ -101,7 +101,7 @@ int main() {
     test_in_random<instantiator1, const P, P>();
     test_in_random<instantiator2, const P, P>();
 }
-#else // ^^^ test all range combinations // test only interesting range combos vvv
+#else // ^^^ test all range combinations / test only interesting range combos vvv
 constexpr void run_tests() {
     using namespace test;
     using test::iterator, test::range;
@@ -135,7 +135,7 @@ struct weird_pair : pair<string, string> {
 };
 
 int main() {
-    STATIC_ASSERT((run_tests(), true));
+    static_assert((run_tests(), true));
     run_tests();
 
     {

@@ -15,17 +15,17 @@
 using namespace std;
 
 template <class CharT>
-inline constexpr auto input_ptr = "1 2 3 4 5";
+constexpr auto input_ptr = "1 2 3 4 5";
 template <>
 inline constexpr auto input_ptr<wchar_t> = L"1 2 3 4 5";
 
 template <class CharT>
-inline constexpr auto input_view = "1 2 3 4 5"sv;
+constexpr auto input_view = "1 2 3 4 5"sv;
 template <>
 inline constexpr auto input_view<wchar_t> = L"1 2 3 4 5"sv;
 
 template <class CharT>
-inline constexpr array input_std_array{'1', ' ', '2', ' ', '3', ' ', '4', ' ', '5'};
+constexpr array input_std_array{'1', ' ', '2', ' ', '3', ' ', '4', ' ', '5'};
 template <>
 inline constexpr array input_std_array<wchar_t>{L'1', L' ', L'2', L' ', L'3', L' ', L'4', L' ', L'5'};
 
@@ -615,7 +615,6 @@ void test_ispanstream() {
         assert(static_cast<test_buf*>(span_mode_constructed.rdbuf())->pptr() == buffer);
         assert(static_cast<test_buf*>(span_mode_constructed.rdbuf())->epptr() == end(buffer));
 
-#ifdef __cpp_lib_concepts
         auto input_range = input_view<CharT>;
         basic_ispanstream<CharT> range_constructed{input_view<CharT>};
         assert(range_constructed.span().data() == input_range.data());
@@ -625,7 +624,6 @@ void test_ispanstream() {
         assert(static_cast<test_buf*>(range_constructed.rdbuf())->pbase() == nullptr);
         assert(static_cast<test_buf*>(range_constructed.rdbuf())->pptr() == nullptr);
         assert(static_cast<test_buf*>(range_constructed.rdbuf())->epptr() == nullptr);
-#endif // __cpp_lib_concepts
     }
 
     { // span
@@ -643,7 +641,6 @@ void test_ispanstream() {
         assert(is.span().data() == other_buffer);
         assert(is.span().size() == size(other_buffer));
 
-#ifdef __cpp_lib_concepts
         auto input_range = input_view<CharT>;
         is.span(input_view<CharT>);
         assert(is.span().data() == input_range.data());
@@ -659,7 +656,6 @@ void test_ispanstream() {
                 assert(read == expected);
             }
         }
-#endif // __cpp_lib_concepts
     }
 
     { // swap

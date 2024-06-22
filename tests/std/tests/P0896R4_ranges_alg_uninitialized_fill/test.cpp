@@ -14,8 +14,8 @@
 using namespace std;
 
 // Validate dangling story
-STATIC_ASSERT(same_as<decltype(ranges::uninitialized_fill(borrowed<true>{}, 42)), int*>);
-STATIC_ASSERT(same_as<decltype(ranges::uninitialized_fill(borrowed<false>{}, 42)), ranges::dangling>);
+static_assert(same_as<decltype(ranges::uninitialized_fill(borrowed<true>{}, 42)), int*>);
+static_assert(same_as<decltype(ranges::uninitialized_fill(borrowed<false>{}, 42)), ranges::dangling>);
 
 struct int_wrapper {
     inline static int constructions = 0;
@@ -44,17 +44,13 @@ struct int_wrapper {
 
     auto operator<=>(const int_wrapper&) const = default;
 };
-STATIC_ASSERT(default_initializable<int_wrapper>);
+static_assert(default_initializable<int_wrapper>);
 
-template <class T, size_t N>
-struct holder {
-    STATIC_ASSERT(N < ~size_t{0} / sizeof(T));
-    alignas(T) unsigned char space[N * sizeof(T)];
-
-    auto as_span() {
-        return span<T, N>{reinterpret_cast<T*>(space + 0), N};
-    }
-};
+#ifdef _M_CEE // TRANSITION, VSO-1664341
+constexpr auto get_int_wrapper_val = [](const int_wrapper& w) { return w.val; };
+#else // ^^^ workaround / no workaround vvv
+constexpr auto get_int_wrapper_val = &int_wrapper::val;
+#endif // ^^^ no workaround ^^^
 
 struct instantiator {
     static constexpr int expected[3] = {42, 42, 42};
@@ -72,7 +68,7 @@ struct instantiator {
             assert(int_wrapper::constructions == 3);
             assert(int_wrapper::destructions == 0);
             assert(result == wrapped_input.end());
-            assert(equal(wrapped_input, expected, equal_to{}, &int_wrapper::val));
+            assert(equal(wrapped_input, expected, equal_to{}, get_int_wrapper_val));
             destroy(wrapped_input);
             assert(int_wrapper::constructions == 3);
             assert(int_wrapper::destructions == 3);
@@ -88,7 +84,7 @@ struct instantiator {
             assert(int_wrapper::constructions == 3);
             assert(int_wrapper::destructions == 0);
             assert(result == wrapped_input.end());
-            assert(equal(wrapped_input, expected, equal_to{}, &int_wrapper::val));
+            assert(equal(wrapped_input, expected, equal_to{}, get_int_wrapper_val));
             destroy(wrapped_input);
             assert(int_wrapper::constructions == 3);
             assert(int_wrapper::destructions == 3);

@@ -3,19 +3,18 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#pragma once
 #ifndef _XCHARCONV_H
 #define _XCHARCONV_H
 #include <yvals_core.h>
 #if _STL_COMPILER_PREPROCESSOR
 
-#include <cstdint>
-#include <type_traits>
-#include <xerrc.h>
-
 #if !_HAS_CXX17
 #error The contents of <charconv> are only available with C++17. (Also, you should not include this internal header.)
 #endif // !_HAS_CXX17
+
+#include <cstdint>
+#include <type_traits>
+#include <xerrc.h>
 
 #pragma pack(push, _CRT_PACKING)
 #pragma warning(push, _STL_WARNING_LEVEL)
@@ -25,16 +24,16 @@ _STL_DISABLE_CLANG_WARNINGS
 #undef new
 
 _STD_BEGIN
-enum class chars_format {
+_EXPORT_STD enum class chars_format {
     scientific = 0b001,
     fixed      = 0b010,
     hex        = 0b100,
     general    = fixed | scientific,
 };
 
-_BITMASK_OPS(chars_format)
+_BITMASK_OPS(_EXPORT_STD, chars_format)
 
-struct to_chars_result {
+_EXPORT_STD struct to_chars_result {
     char* ptr;
     errc ec;
 #if _HAS_CXX20

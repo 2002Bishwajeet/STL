@@ -6,30 +6,22 @@
 #define _SILENCE_CXX17_IS_LITERAL_TYPE_DEPRECATION_WARNING
 #define _SILENCE_CXX17_NEGATORS_DEPRECATION_WARNING
 #define _SILENCE_CXX20_IS_POD_DEPRECATION_WARNING
+#define _SILENCE_CXX23_DENORM_DEPRECATION_WARNING
 
 #include <algorithm>
 #include <array>
-#include <cassert>
-#ifndef _M_CEE_PURE
-#include <atomic>
-#endif // _M_CEE_PURE
 #include <bitset>
+#include <cassert>
 #include <chrono>
 #include <complex>
+#include <cstdint>
 #include <functional>
-#ifndef _M_CEE
-#include <future>
-#endif // _M_CEE
 #include <initializer_list>
 #include <ios>
 #include <iterator>
 #include <limits>
 #include <locale>
 #include <memory>
-#ifndef _M_CEE
-#include <mutex>
-#endif // _M_CEE
-#include <cstdint>
 #include <new>
 #include <numeric>
 #include <random>
@@ -41,9 +33,20 @@
 #include <type_traits>
 #include <utility>
 
+#ifndef _M_CEE_PURE
+#include <atomic>
+#include <future>
+#include <mutex>
+#endif // _M_CEE_PURE
+
 using namespace std;
 using namespace std::chrono;
 namespace RC = std::regex_constants;
+
+constexpr auto int32_min = numeric_limits<int32_t>::min();
+constexpr auto int32_max = numeric_limits<int32_t>::max();
+constexpr auto int64_min = numeric_limits<int64_t>::min();
+constexpr auto int64_max = numeric_limits<int64_t>::max();
 
 #define STATIC_ASSERT(...) static_assert(__VA_ARGS__, #__VA_ARGS__)
 
@@ -445,8 +448,8 @@ STATIC_ASSERT(ratio<252, 105>::num == 12);
 STATIC_ASSERT(ratio<252, 105>::den == 5);
 
 STATIC_ASSERT(duration_values<int32_t>::zero() == 0);
-STATIC_ASSERT(duration_values<int32_t>::min() == INT32_MIN);
-STATIC_ASSERT(duration_values<int32_t>::max() == INT32_MAX);
+STATIC_ASSERT(duration_values<int32_t>::min() == int32_min);
+STATIC_ASSERT(duration_values<int32_t>::max() == int32_max);
 
 constexpr seconds d1{};
 STATIC_ASSERT(d1.count() == 0);
@@ -464,8 +467,8 @@ constexpr milliseconds d5(d4);
 STATIC_ASSERT(d5.count() == 47000);
 
 STATIC_ASSERT(duration<int64_t>::zero().count() == 0);
-STATIC_ASSERT(duration<int64_t>::min().count() == INT64_MIN);
-STATIC_ASSERT(duration<int64_t>::max().count() == INT64_MAX);
+STATIC_ASSERT(duration<int64_t>::min().count() == int64_min);
+STATIC_ASSERT(duration<int64_t>::max().count() == int64_max);
 
 constexpr seconds d6(1700);
 constexpr seconds d7(29);
@@ -538,8 +541,8 @@ constexpr time_point<system_clock, seconds> tp2(16s);
 STATIC_ASSERT(tp2.time_since_epoch().count() == 16);
 constexpr time_point<system_clock, milliseconds> tp3(tp2);
 STATIC_ASSERT(tp3.time_since_epoch().count() == 16000);
-STATIC_ASSERT(time_point<system_clock, duration<int32_t>>::min().time_since_epoch().count() == INT32_MIN);
-STATIC_ASSERT(time_point<system_clock, duration<int32_t>>::max().time_since_epoch().count() == INT32_MAX);
+STATIC_ASSERT(time_point<system_clock, duration<int32_t>>::min().time_since_epoch().count() == int32_min);
+STATIC_ASSERT(time_point<system_clock, duration<int32_t>>::max().time_since_epoch().count() == int32_max);
 
 constexpr time_point<system_clock, seconds> tp4(1000s);
 constexpr time_point<system_clock, seconds> tp5(729s);
@@ -621,6 +624,11 @@ constexpr array<int, 0> arr0 = {{}};
 STATIC_ASSERT(arr0.size() == 0);
 STATIC_ASSERT(arr0.max_size() != 5);
 STATIC_ASSERT(arr0.empty() == true);
+
+// Also test DevCom-10299275, in which array<int, 0> was not a valid constant expression
+// since we didn't initialize the single element.
+constexpr array<int, 0> empty_array;
+STATIC_ASSERT(empty_array.size() == 0);
 
 constexpr istream_iterator<int> istream_it{};
 
@@ -809,7 +817,7 @@ STATIC_ASSERT(sm.first == nullptr);
 STATIC_ASSERT(sm.second == nullptr);
 STATIC_ASSERT(sm.matched == false);
 
-#ifndef _M_CEE
+#ifndef _M_CEE_PURE
 
 constexpr defer_lock_t defer_lock2   = defer_lock;
 constexpr try_to_lock_t try_to_lock2 = try_to_lock;
@@ -820,7 +828,7 @@ constexpr once_flag once{};
 // TRANSITION,
 // constexpr mutex() noexcept;
 
-#endif // _M_CEE
+#endif // _M_CEE_PURE
 
 // reverse_iterator and string_view constexpr are tested in P0220R1_string_view
 
@@ -844,9 +852,9 @@ void test_all_bitmasks() {
     test_bitmask<ios_base::openmode, ios_base::binary, ios_base::out>();
     test_bitmask<RC::syntax_option_type, RC::icase, RC::nosubs>();
     test_bitmask<RC::match_flag_type, RC::match_not_bol, RC::match_not_eol>();
-#ifndef _M_CEE
+#ifndef _M_CEE_PURE
     test_bitmask<launch, launch::async, launch::deferred>();
-#endif // _M_CEE
+#endif // _M_CEE_PURE
 }
 
 template <typename T>
@@ -1010,12 +1018,12 @@ int main() {
     (void) istream_it;
     (void) istreambuf_it;
 
-#ifndef _M_CEE
+#ifndef _M_CEE_PURE
     (void) defer_lock2;
     (void) try_to_lock2;
     (void) adopt_lock2;
     (void) once;
-#endif // _M_CEE
+#endif // _M_CEE_PURE
 
     // Compare against VC 2013's values.
     assert_bits(numeric_limits<float>::denorm_min(), 0x00000001UL);

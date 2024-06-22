@@ -3,7 +3,6 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#pragma once
 #ifndef _STRING_
 #define _STRING_
 #include <yvals_core.h>
@@ -22,7 +21,7 @@ _STL_DISABLE_CLANG_WARNINGS
 #undef new
 
 _STD_BEGIN
-template <class _Elem, class _Traits, class _Alloc>
+_EXPORT_STD template <class _Elem, class _Traits, class _Alloc>
 basic_istream<_Elem, _Traits>& getline(
     basic_istream<_Elem, _Traits>&& _Istr, basic_string<_Elem, _Traits, _Alloc>& _Str, const _Elem _Delim) {
     // get characters into string, discard delimiter
@@ -65,28 +64,28 @@ basic_istream<_Elem, _Traits>& getline(
     return static_cast<basic_istream<_Elem, _Traits>&>(_Istr);
 }
 
-template <class _Elem, class _Traits, class _Alloc>
+_EXPORT_STD template <class _Elem, class _Traits, class _Alloc>
 basic_istream<_Elem, _Traits>& getline(
     basic_istream<_Elem, _Traits>&& _Istr, basic_string<_Elem, _Traits, _Alloc>& _Str) {
     // get characters into string, discard newline
-    return getline(_Istr, _Str, _Istr.widen('\n'));
+    return _STD getline(_STD move(_Istr), _Str, _Istr.widen('\n'));
 }
 
-template <class _Elem, class _Traits, class _Alloc>
+_EXPORT_STD template <class _Elem, class _Traits, class _Alloc>
 basic_istream<_Elem, _Traits>& getline(
     basic_istream<_Elem, _Traits>& _Istr, basic_string<_Elem, _Traits, _Alloc>& _Str, const _Elem _Delim) {
     // get characters into string, discard delimiter
-    return getline(_STD move(_Istr), _Str, _Delim);
+    return _STD getline(_STD move(_Istr), _Str, _Delim);
 }
 
-template <class _Elem, class _Traits, class _Alloc>
+_EXPORT_STD template <class _Elem, class _Traits, class _Alloc>
 basic_istream<_Elem, _Traits>& getline(
     basic_istream<_Elem, _Traits>& _Istr, basic_string<_Elem, _Traits, _Alloc>& _Str) {
     // get characters into string, discard newline
-    return getline(_STD move(_Istr), _Str, _Istr.widen('\n'));
+    return _STD getline(_STD move(_Istr), _Str, _Istr.widen('\n'));
 }
 
-_NODISCARD inline int stoi(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline int stoi(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref  = errno; // Nonzero cost, pay it once
     const char* _Ptr = _Str.c_str();
     char* _Eptr;
@@ -108,7 +107,7 @@ _NODISCARD inline int stoi(const string& _Str, size_t* _Idx = nullptr, int _Base
     return static_cast<int>(_Ans);
 }
 
-_NODISCARD inline long stol(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline long stol(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref  = errno; // Nonzero cost, pay it once
     const char* _Ptr = _Str.c_str();
     char* _Eptr;
@@ -130,7 +129,7 @@ _NODISCARD inline long stol(const string& _Str, size_t* _Idx = nullptr, int _Bas
     return _Ans;
 }
 
-_NODISCARD inline unsigned long stoul(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline unsigned long stoul(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref  = errno; // Nonzero cost, pay it once
     const char* _Ptr = _Str.c_str();
     char* _Eptr;
@@ -152,7 +151,7 @@ _NODISCARD inline unsigned long stoul(const string& _Str, size_t* _Idx = nullptr
     return _Ans;
 }
 
-_NODISCARD inline long long stoll(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline long long stoll(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref  = errno; // Nonzero cost, pay it once
     const char* _Ptr = _Str.c_str();
     char* _Eptr;
@@ -174,7 +173,7 @@ _NODISCARD inline long long stoll(const string& _Str, size_t* _Idx = nullptr, in
     return _Ans;
 }
 
-_NODISCARD inline unsigned long long stoull(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline unsigned long long stoull(const string& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref  = errno; // Nonzero cost, pay it once
     const char* _Ptr = _Str.c_str();
     char* _Eptr;
@@ -196,7 +195,7 @@ _NODISCARD inline unsigned long long stoull(const string& _Str, size_t* _Idx = n
     return _Ans;
 }
 
-_NODISCARD inline float stof(const string& _Str, size_t* _Idx = nullptr) {
+_EXPORT_STD _NODISCARD inline float stof(const string& _Str, size_t* _Idx = nullptr) {
     int& _Errno_ref  = errno; // Nonzero cost, pay it once
     const char* _Ptr = _Str.c_str();
     char* _Eptr;
@@ -218,7 +217,7 @@ _NODISCARD inline float stof(const string& _Str, size_t* _Idx = nullptr) {
     return _Ans;
 }
 
-_NODISCARD inline double stod(const string& _Str, size_t* _Idx = nullptr) {
+_EXPORT_STD _NODISCARD inline double stod(const string& _Str, size_t* _Idx = nullptr) {
     int& _Errno_ref  = errno; // Nonzero cost, pay it once
     const char* _Ptr = _Str.c_str();
     char* _Eptr;
@@ -240,7 +239,7 @@ _NODISCARD inline double stod(const string& _Str, size_t* _Idx = nullptr) {
     return _Ans;
 }
 
-_NODISCARD inline long double stold(const string& _Str, size_t* _Idx = nullptr) {
+_EXPORT_STD _NODISCARD inline long double stold(const string& _Str, size_t* _Idx = nullptr) {
     int& _Errno_ref  = errno; // Nonzero cost, pay it once
     const char* _Ptr = _Str.c_str();
     char* _Eptr;
@@ -262,7 +261,7 @@ _NODISCARD inline long double stold(const string& _Str, size_t* _Idx = nullptr) 
     return _Ans;
 }
 
-_NODISCARD inline int stoi(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline int stoi(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref     = errno; // Nonzero cost, pay it once
     const wchar_t* _Ptr = _Str.c_str();
     wchar_t* _Eptr;
@@ -284,7 +283,7 @@ _NODISCARD inline int stoi(const wstring& _Str, size_t* _Idx = nullptr, int _Bas
     return static_cast<int>(_Ans);
 }
 
-_NODISCARD inline long stol(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline long stol(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref     = errno; // Nonzero cost, pay it once
     const wchar_t* _Ptr = _Str.c_str();
     wchar_t* _Eptr;
@@ -306,7 +305,7 @@ _NODISCARD inline long stol(const wstring& _Str, size_t* _Idx = nullptr, int _Ba
     return _Ans;
 }
 
-_NODISCARD inline unsigned long stoul(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline unsigned long stoul(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref     = errno; // Nonzero cost, pay it once
     const wchar_t* _Ptr = _Str.c_str();
     wchar_t* _Eptr;
@@ -328,7 +327,7 @@ _NODISCARD inline unsigned long stoul(const wstring& _Str, size_t* _Idx = nullpt
     return _Ans;
 }
 
-_NODISCARD inline long long stoll(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline long long stoll(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref     = errno; // Nonzero cost, pay it once
     const wchar_t* _Ptr = _Str.c_str();
     wchar_t* _Eptr;
@@ -350,7 +349,7 @@ _NODISCARD inline long long stoll(const wstring& _Str, size_t* _Idx = nullptr, i
     return _Ans;
 }
 
-_NODISCARD inline unsigned long long stoull(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
+_EXPORT_STD _NODISCARD inline unsigned long long stoull(const wstring& _Str, size_t* _Idx = nullptr, int _Base = 10) {
     int& _Errno_ref     = errno; // Nonzero cost, pay it once
     const wchar_t* _Ptr = _Str.c_str();
     wchar_t* _Eptr;
@@ -372,7 +371,7 @@ _NODISCARD inline unsigned long long stoull(const wstring& _Str, size_t* _Idx = 
     return _Ans;
 }
 
-_NODISCARD inline float stof(const wstring& _Str, size_t* _Idx = nullptr) {
+_EXPORT_STD _NODISCARD inline float stof(const wstring& _Str, size_t* _Idx = nullptr) {
     int& _Errno_ref     = errno; // Nonzero cost, pay it once
     const wchar_t* _Ptr = _Str.c_str();
     wchar_t* _Eptr;
@@ -394,7 +393,7 @@ _NODISCARD inline float stof(const wstring& _Str, size_t* _Idx = nullptr) {
     return _Ans;
 }
 
-_NODISCARD inline double stod(const wstring& _Str, size_t* _Idx = nullptr) {
+_EXPORT_STD _NODISCARD inline double stod(const wstring& _Str, size_t* _Idx = nullptr) {
     int& _Errno_ref     = errno; // Nonzero cost, pay it once
     const wchar_t* _Ptr = _Str.c_str();
     wchar_t* _Eptr;
@@ -416,7 +415,7 @@ _NODISCARD inline double stod(const wstring& _Str, size_t* _Idx = nullptr) {
     return _Ans;
 }
 
-_NODISCARD inline long double stold(const wstring& _Str, size_t* _Idx = nullptr) {
+_EXPORT_STD _NODISCARD inline long double stold(const wstring& _Str, size_t* _Idx = nullptr) {
     int& _Errno_ref     = errno; // Nonzero cost, pay it once
     const wchar_t* _Ptr = _Str.c_str();
     wchar_t* _Eptr;
@@ -436,38 +435,6 @@ _NODISCARD inline long double stold(const wstring& _Str, size_t* _Idx = nullptr)
     }
 
     return _Ans;
-}
-
-template <class _Elem, class _UTy>
-_NODISCARD _Elem* _UIntegral_to_buff(_Elem* _RNext, _UTy _UVal) {
-    // format _UVal into buffer *ending at* _RNext
-    static_assert(is_unsigned_v<_UTy>, "_UTy must be unsigned");
-
-#ifdef _WIN64
-    auto _UVal_trunc = _UVal;
-#else // ^^^ _WIN64 ^^^ // vvv !_WIN64 vvv
-
-    constexpr bool _Big_uty = sizeof(_UTy) > 4;
-    if constexpr (_Big_uty) { // For 64-bit numbers, work in chunks to avoid 64-bit divisions.
-        while (_UVal > 0xFFFFFFFFU) {
-            auto _UVal_chunk = static_cast<unsigned long>(_UVal % 1000000000);
-            _UVal /= 1000000000;
-
-            for (int _Idx = 0; _Idx != 9; ++_Idx) {
-                *--_RNext = static_cast<_Elem>('0' + _UVal_chunk % 10);
-                _UVal_chunk /= 10;
-            }
-        }
-    }
-
-    auto _UVal_trunc = static_cast<unsigned long>(_UVal);
-#endif // _WIN64
-
-    do {
-        *--_RNext = static_cast<_Elem>('0' + _UVal_trunc % 10);
-        _UVal_trunc /= 10;
-    } while (_UVal_trunc != 0);
-    return _RNext;
 }
 
 template <class _Elem, class _Ty>
@@ -501,81 +468,81 @@ _NODISCARD basic_string<_Elem> _UIntegral_to_string(const _Ty _Val) {
     return basic_string<_Elem>(_RNext, _Buff_end);
 }
 
-_NODISCARD inline string to_string(int _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(int _Val) {
     return _Integral_to_string<char>(_Val);
 }
 
-_NODISCARD inline string to_string(unsigned int _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(unsigned int _Val) {
     return _UIntegral_to_string<char>(_Val);
 }
 
-_NODISCARD inline string to_string(long _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(long _Val) {
     return _Integral_to_string<char>(_Val);
 }
 
-_NODISCARD inline string to_string(unsigned long _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(unsigned long _Val) {
     return _UIntegral_to_string<char>(_Val);
 }
 
-_NODISCARD inline string to_string(long long _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(long long _Val) {
     return _Integral_to_string<char>(_Val);
 }
 
-_NODISCARD inline string to_string(unsigned long long _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(unsigned long long _Val) {
     return _UIntegral_to_string<char>(_Val);
 }
 
-_NODISCARD inline string to_string(double _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(double _Val) {
     const auto _Len = static_cast<size_t>(_CSTD _scprintf("%f", _Val));
     string _Str(_Len, '\0');
     _CSTD sprintf_s(&_Str[0], _Len + 1, "%f", _Val);
     return _Str;
 }
 
-_NODISCARD inline string to_string(float _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(float _Val) {
     return _STD to_string(static_cast<double>(_Val));
 }
 
-_NODISCARD inline string to_string(long double _Val) {
+_EXPORT_STD _NODISCARD inline string to_string(long double _Val) {
     return _STD to_string(static_cast<double>(_Val));
 }
 
-_NODISCARD inline wstring to_wstring(int _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(int _Val) {
     return _Integral_to_string<wchar_t>(_Val);
 }
 
-_NODISCARD inline wstring to_wstring(unsigned int _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(unsigned int _Val) {
     return _UIntegral_to_string<wchar_t>(_Val);
 }
 
-_NODISCARD inline wstring to_wstring(long _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(long _Val) {
     return _Integral_to_string<wchar_t>(_Val);
 }
 
-_NODISCARD inline wstring to_wstring(unsigned long _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(unsigned long _Val) {
     return _UIntegral_to_string<wchar_t>(_Val);
 }
 
-_NODISCARD inline wstring to_wstring(long long _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(long long _Val) {
     return _Integral_to_string<wchar_t>(_Val);
 }
 
-_NODISCARD inline wstring to_wstring(unsigned long long _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(unsigned long long _Val) {
     return _UIntegral_to_string<wchar_t>(_Val);
 }
 
-_NODISCARD inline wstring to_wstring(double _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(double _Val) {
     const auto _Len = static_cast<size_t>(_CSTD _scwprintf(L"%f", _Val));
     wstring _Str(_Len, L'\0');
     _CSTD swprintf_s(&_Str[0], _Len + 1, L"%f", _Val);
     return _Str;
 }
 
-_NODISCARD inline wstring to_wstring(float _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(float _Val) {
     return _STD to_wstring(static_cast<double>(_Val));
 }
 
-_NODISCARD inline wstring to_wstring(long double _Val) {
+_EXPORT_STD _NODISCARD inline wstring to_wstring(long double _Val) {
     return _STD to_wstring(static_cast<double>(_Val));
 }
 _STD_END

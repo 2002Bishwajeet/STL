@@ -15,16 +15,16 @@
 using namespace std;
 
 // Validate that uninitialized_move_result aliases in_out_result
-STATIC_ASSERT(same_as<ranges::uninitialized_move_result<int, double>, ranges::in_out_result<int, double>>);
+static_assert(same_as<ranges::uninitialized_move_result<int, double>, ranges::in_out_result<int, double>>);
 
 // Validate dangling story
-STATIC_ASSERT(same_as<decltype(ranges::uninitialized_move(borrowed<false>{}, borrowed<false>{})),
+static_assert(same_as<decltype(ranges::uninitialized_move(borrowed<false>{}, borrowed<false>{})),
     ranges::uninitialized_move_result<ranges::dangling, ranges::dangling>>);
-STATIC_ASSERT(same_as<decltype(ranges::uninitialized_move(borrowed<false>{}, borrowed<true>{})),
+static_assert(same_as<decltype(ranges::uninitialized_move(borrowed<false>{}, borrowed<true>{})),
     ranges::uninitialized_move_result<ranges::dangling, int*>>);
-STATIC_ASSERT(same_as<decltype(ranges::uninitialized_move(borrowed<true>{}, borrowed<false>{})),
+static_assert(same_as<decltype(ranges::uninitialized_move(borrowed<true>{}, borrowed<false>{})),
     ranges::uninitialized_move_result<int*, ranges::dangling>>);
-STATIC_ASSERT(same_as<decltype(ranges::uninitialized_move(borrowed<true>{}, borrowed<true>{})),
+static_assert(same_as<decltype(ranges::uninitialized_move(borrowed<true>{}, borrowed<true>{})),
     ranges::uninitialized_move_result<int*, int*>>);
 
 struct int_wrapper {
@@ -65,17 +65,13 @@ struct int_wrapper {
 
     auto operator<=>(const int_wrapper&) const = default;
 };
-STATIC_ASSERT(movable<int_wrapper> && !copyable<int_wrapper>);
+static_assert(movable<int_wrapper> && !copyable<int_wrapper>);
 
-template <class T, size_t N>
-struct holder {
-    STATIC_ASSERT(N < ~size_t{0} / sizeof(T));
-    alignas(T) unsigned char space[N * sizeof(T)];
-
-    auto as_span() {
-        return span<T, N>{reinterpret_cast<T*>(space + 0), N};
-    }
-};
+#ifdef _M_CEE // TRANSITION, VSO-1664341
+constexpr auto get_int_wrapper_val = [](const int_wrapper& w) { return w.val; };
+#else // ^^^ workaround / no workaround vvv
+constexpr auto get_int_wrapper_val = &int_wrapper::val;
+#endif // ^^^ no workaround ^^^
 
 struct instantiator {
     static constexpr int expected_output[]      = {13, 55, 12345};
@@ -101,8 +97,8 @@ struct instantiator {
             assert(int_wrapper::destructions == 0);
             assert(result.in == wrapped_input.end());
             assert(result.out == wrapped_output.end());
-            assert(equal(wrapped_output, expected_output, equal_to{}, &int_wrapper::val));
-            assert(equal(input, expected_input, equal_to{}, &int_wrapper::val));
+            assert(equal(wrapped_output, expected_output, equal_to{}, get_int_wrapper_val));
+            assert(equal(input, expected_input, equal_to{}, get_int_wrapper_val));
             destroy(wrapped_output);
             assert(int_wrapper::constructions == 3);
             assert(int_wrapper::destructions == 3);
@@ -121,8 +117,8 @@ struct instantiator {
             assert(int_wrapper::destructions == 0);
             assert(result.in == wrapped_input.end());
             assert(result.out == wrapped_output.end());
-            assert(equal(wrapped_output, expected_output, equal_to{}, &int_wrapper::val));
-            assert(equal(input, expected_input, equal_to{}, &int_wrapper::val));
+            assert(equal(wrapped_output, expected_output, equal_to{}, get_int_wrapper_val));
+            assert(equal(input, expected_input, equal_to{}, get_int_wrapper_val));
             destroy(wrapped_output);
             assert(int_wrapper::constructions == 3);
             assert(int_wrapper::destructions == 3);
@@ -141,8 +137,8 @@ struct instantiator {
             assert(int_wrapper::destructions == 0);
             assert(++result.in == wrapped_input.end());
             assert(result.out == wrapped_output.end());
-            assert(equal(wrapped_output, expected_output, equal_to{}, &int_wrapper::val));
-            assert(equal(input, expected_input_long, equal_to{}, &int_wrapper::val));
+            assert(equal(wrapped_output, expected_output, equal_to{}, get_int_wrapper_val));
+            assert(equal(input, expected_input_long, equal_to{}, get_int_wrapper_val));
             destroy(wrapped_output);
             assert(int_wrapper::constructions == 3);
             assert(int_wrapper::destructions == 3);
@@ -162,8 +158,8 @@ struct instantiator {
             assert(result.in == wrapped_input.end());
             construct_at(addressof(*result.out), -1); // Need to construct non written element for comparison
             assert(++result.out == wrapped_output.end());
-            assert(equal(wrapped_output, expected_output_long, equal_to{}, &int_wrapper::val));
-            assert(equal(input, expected_input, equal_to{}, &int_wrapper::val));
+            assert(equal(wrapped_output, expected_output_long, equal_to{}, get_int_wrapper_val));
+            assert(equal(input, expected_input, equal_to{}, get_int_wrapper_val));
             destroy(wrapped_output);
             assert(int_wrapper::constructions == 4);
             assert(int_wrapper::destructions == 4);
@@ -193,7 +189,7 @@ struct throwing_test {
         }
         assert(int_wrapper::constructions == 2);
         assert(int_wrapper::destructions == 2);
-        assert(ranges::equal(input, expected_input, ranges::equal_to{}, &int_wrapper::val));
+        assert(ranges::equal(input, expected_input, ranges::equal_to{}, get_int_wrapper_val));
     }
 };
 
@@ -265,7 +261,7 @@ struct memcpy_test {
 
 template <test::ProxyRef IsProxy>
 using test_input  = test::range<test::input, int_wrapper, test::Sized::no, test::CanDifference::no, test::Common::no,
-    test::CanCompare::yes, IsProxy>;
+    test::CanCompare::no, IsProxy>;
 using test_output = test::range<test::fwd, int_wrapper, test::Sized::no, test::CanDifference::no, test::Common::no,
     test::CanCompare::yes, test::ProxyRef::no>;
 

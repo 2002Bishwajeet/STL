@@ -14,8 +14,8 @@
 using namespace std;
 
 // Validate dangling story
-STATIC_ASSERT(same_as<decltype(ranges::uninitialized_default_construct(borrowed<true>{})), int*>);
-STATIC_ASSERT(same_as<decltype(ranges::uninitialized_default_construct(borrowed<false>{})), ranges::dangling>);
+static_assert(same_as<decltype(ranges::uninitialized_default_construct(borrowed<true>{})), int*>);
+static_assert(same_as<decltype(ranges::uninitialized_default_construct(borrowed<false>{})), ranges::dangling>);
 
 struct int_wrapper {
     inline static int constructions = 0;
@@ -41,17 +41,7 @@ struct int_wrapper {
 
     auto operator<=>(const int_wrapper&) const = default;
 };
-STATIC_ASSERT(default_initializable<int_wrapper>);
-
-template <class T, size_t N>
-struct holder {
-    STATIC_ASSERT(N < ~size_t{0} / sizeof(T));
-    alignas(T) unsigned char space[N * sizeof(T)];
-
-    auto as_span() {
-        return span<T, N>{reinterpret_cast<T*>(space + 0), N};
-    }
-};
+static_assert(default_initializable<int_wrapper>);
 
 struct instantiator {
     template <ranges::forward_range Write>

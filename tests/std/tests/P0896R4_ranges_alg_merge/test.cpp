@@ -14,23 +14,23 @@ using namespace std;
 using P = pair<int, int>;
 
 // Validate that merge_result aliases in_in_out_result
-STATIC_ASSERT(same_as<ranges::merge_result<int, void*, double>, ranges::in_in_out_result<int, void*, double>>);
+static_assert(same_as<ranges::merge_result<int, void*, double>, ranges::in_in_out_result<int, void*, double>>);
 
 // Validate dangling story
-STATIC_ASSERT(same_as<decltype(ranges::merge(borrowed<false>{}, borrowed<false>{}, nullptr_to<int>)),
+static_assert(same_as<decltype(ranges::merge(borrowed<false>{}, borrowed<false>{}, nullptr_to<int>)),
     ranges::merge_result<ranges::dangling, ranges::dangling, int*>>);
-STATIC_ASSERT(same_as<decltype(ranges::merge(borrowed<false>{}, borrowed<true>{}, nullptr_to<int>)),
+static_assert(same_as<decltype(ranges::merge(borrowed<false>{}, borrowed<true>{}, nullptr_to<int>)),
     ranges::merge_result<ranges::dangling, int*, int*>>);
-STATIC_ASSERT(same_as<decltype(ranges::merge(borrowed<true>{}, borrowed<false>{}, nullptr_to<int>)),
+static_assert(same_as<decltype(ranges::merge(borrowed<true>{}, borrowed<false>{}, nullptr_to<int>)),
     ranges::merge_result<int*, ranges::dangling, int*>>);
-STATIC_ASSERT(same_as<decltype(ranges::merge(borrowed<true>{}, borrowed<true>{}, nullptr_to<int>)),
+static_assert(same_as<decltype(ranges::merge(borrowed<true>{}, borrowed<true>{}, nullptr_to<int>)),
     ranges::merge_result<int*, int*, int*>>);
 
 struct instantiator {
     static constexpr P elements1[] = {{0, 10}, {0, 11}, {0, 12}, {1, 10}, {1, 11}, {3, 10}};
     static constexpr P elements2[] = {{13, 0}, {14, 0}, {10, 2}, {11, 3}, {12, 3}};
     static constexpr P expected[]  = {
-         {0, 10}, {0, 11}, {0, 12}, {13, 0}, {14, 0}, {1, 10}, {1, 11}, {10, 2}, {3, 10}, {11, 3}, {12, 3}};
+        {0, 10}, {0, 11}, {0, 12}, {13, 0}, {14, 0}, {1, 10}, {1, 11}, {10, 2}, {3, 10}, {11, 3}, {12, 3}};
 
     static constexpr auto counting_compare(size_t& counter) {
         return [&counter](auto&& x, auto&& y) {
@@ -150,6 +150,6 @@ constexpr void run_tests() {
 }
 
 int main() {
-    STATIC_ASSERT((run_tests(), true));
+    static_assert((run_tests(), true));
     run_tests();
 }

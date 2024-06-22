@@ -3,6 +3,8 @@
 
 // system_error message mapping
 
+#define _SILENCE_CXX23_UNIX_STREAMS_DEPRECATION_WARNING
+
 #include <algorithm>
 #include <functional>
 #include <system_error>
@@ -50,6 +52,7 @@ namespace {
         {ERROR_NOT_SUPPORTED, errc::not_supported},
         {ERROR_BAD_NETPATH, errc::no_such_file_or_directory},
         {ERROR_DEV_NOT_EXIST, errc::no_such_device},
+        {ERROR_BAD_NET_NAME, errc::no_such_file_or_directory},
         {ERROR_FILE_EXISTS, errc::file_exists},
         {ERROR_CANNOT_MAKE, errc::permission_denied},
         {ERROR_INVALID_PARAMETER, errc::invalid_argument},
@@ -64,6 +67,7 @@ namespace {
         {ERROR_DIR_NOT_EMPTY, errc::directory_not_empty},
         {ERROR_BUSY, errc::device_or_resource_busy},
         {ERROR_ALREADY_EXISTS, errc::file_exists},
+        {ERROR_FILENAME_EXCED_RANGE, errc::filename_too_long},
         {ERROR_LOCKED, errc::no_lock_available},
         {WAIT_TIMEOUT, errc::timed_out},
         {ERROR_DIRECTORY, errc::invalid_argument},
@@ -114,7 +118,7 @@ namespace {
     static_assert(
         _RANGES adjacent_find(_Win_errtab, _RANGES greater_equal{}, &_Win_errtab_t::_Windows) == _STD end(_Win_errtab),
         "The Windows error codes in _Win_errtab should be numerically sorted and unique.");
-#endif // _M_CEE_PURE
+#endif // !defined(_M_CEE_PURE)
 
     struct _Sys_errtab_t { // maps error_code to NTBS
         errc _Errcode;

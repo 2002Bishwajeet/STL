@@ -26,13 +26,19 @@ struct int_wrapper {
     auto operator<=>(const int_wrapper&) const = default;
 };
 
+#ifdef _M_CEE // TRANSITION, VSO-1664341
+constexpr auto get_int_wrapper_val = [](const int_wrapper& w) { return w.val; };
+#else // ^^^ workaround / no workaround vvv
+constexpr auto get_int_wrapper_val = &int_wrapper::val;
+#endif // ^^^ no workaround ^^^
+
 // Validate that move_backward_result aliases in_out_result
-STATIC_ASSERT(same_as<ranges::move_backward_result<int, double>, ranges::in_out_result<int, double>>);
+static_assert(same_as<ranges::move_backward_result<int, double>, ranges::in_out_result<int, double>>);
 
 // Validate dangling story
-STATIC_ASSERT(same_as<decltype(ranges::move_backward(borrowed<false>{}, nullptr_to<int>)),
+static_assert(same_as<decltype(ranges::move_backward(borrowed<false>{}, nullptr_to<int>)),
     ranges::move_backward_result<ranges::dangling, int*>>);
-STATIC_ASSERT(same_as<decltype(ranges::move_backward(borrowed<true>{}, nullptr_to<int>)),
+static_assert(same_as<decltype(ranges::move_backward(borrowed<true>{}, nullptr_to<int>)),
     ranges::move_backward_result<int*, int*>>);
 
 struct instantiator {
@@ -56,8 +62,8 @@ struct instantiator {
                     move_backward(wrapped_input, wrapped_output.end());
                 assert(result.in == wrapped_input.end());
                 assert(result.out == wrapped_output.begin());
-                assert(equal(output, expected_output, ranges::equal_to{}, &int_wrapper::val));
-                assert(equal(input, expected_input, ranges::equal_to{}, &int_wrapper::val));
+                assert(equal(output, expected_output, ranges::equal_to{}, get_int_wrapper_val));
+                assert(equal(input, expected_input, ranges::equal_to{}, get_int_wrapper_val));
             }
             { // Validate iterator + sentinel overload
                 int_wrapper input[]  = {13, 42, 1729};
@@ -68,8 +74,8 @@ struct instantiator {
                     move_backward(wrapped_input.begin(), wrapped_input.end(), wrapped_output.end());
                 assert(result.in == wrapped_input.end());
                 assert(result.out == wrapped_output.begin());
-                assert(equal(output, expected_output, ranges::equal_to{}, &int_wrapper::val));
-                assert(equal(input, expected_input, ranges::equal_to{}, &int_wrapper::val));
+                assert(equal(output, expected_output, ranges::equal_to{}, get_int_wrapper_val));
+                assert(equal(input, expected_input, ranges::equal_to{}, get_int_wrapper_val));
             }
             { // Validate overlapping ranges
                 int_wrapper io[] = {0, 1, 2, 42};
@@ -79,7 +85,7 @@ struct instantiator {
                     move_backward(wrapped_input, wrapped_output.end());
                 assert(result.in == wrapped_input.end());
                 assert(result.out == wrapped_output.begin());
-                assert(equal(io, expected_overlapping, ranges::equal_to{}, &int_wrapper::val));
+                assert(equal(io, expected_overlapping, ranges::equal_to{}, get_int_wrapper_val));
             }
         }
     }
@@ -122,14 +128,18 @@ constexpr void test_memmove() {
         assert(result.in == io + 3);
         assert(result.out == io + 1);
         constexpr int expected[] = {0, 0, 1, 2};
+#ifdef _M_CEE // TRANSITION, VSO-1664341
+        assert(equal(io, expected, ranges::equal_to{}, [](const S& s) { return s.val; }));
+#else // ^^^ workaround / no workaround vvv
         assert(equal(io, expected, ranges::equal_to{}, &S::val));
+#endif // ^^^ no workaround ^^^
     }
 }
 
 int main() {
-    STATIC_ASSERT((test_bidi_bidi<instantiator, int_wrapper, int_wrapper>(), true));
+    static_assert((test_bidi_bidi<instantiator, int_wrapper, int_wrapper>(), true));
     test_bidi_bidi<instantiator, int_wrapper, int_wrapper>();
 
-    STATIC_ASSERT((test_memmove(), true));
+    static_assert((test_memmove(), true));
     test_memmove();
 }

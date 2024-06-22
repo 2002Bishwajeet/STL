@@ -3,14 +3,13 @@
 // Copyright (c) Microsoft Corporation.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#pragma once
 #ifndef _STOP_TOKEN_
 #define _STOP_TOKEN_
 #include <yvals.h>
 #if _STL_COMPILER_PREPROCESSOR
 
 #if !_HAS_CXX20
-#pragma message("The contents of <stop_token> are available only with C++20 or later.")
+_EMIT_STL_WARNING(STL4038, "The contents of <stop_token> are available only with C++20 or later.");
 #else // ^^^ !_HAS_CXX20 / _HAS_CXX20 vvv
 
 #include <atomic>
@@ -25,14 +24,14 @@ _STL_DISABLE_CLANG_WARNINGS
 #undef new
 
 _STD_BEGIN
-struct nostopstate_t {
+_EXPORT_STD struct nostopstate_t {
     explicit nostopstate_t() = default;
 };
 
-inline constexpr nostopstate_t nostopstate{};
+_EXPORT_STD inline constexpr nostopstate_t nostopstate{};
 
 struct _Stop_state;
-class stop_token;
+_EXPORT_STD class stop_token;
 
 class _Stop_callback_base {
     friend _Stop_state;
@@ -114,9 +113,9 @@ struct _Stop_state {
     }
 };
 
-class stop_source;
+_EXPORT_STD class stop_source;
 
-class stop_token {
+_EXPORT_STD class stop_token {
     friend stop_source;
     friend _Stop_callback_base;
 
@@ -175,7 +174,7 @@ private:
     _Stop_state* _State;
 };
 
-class stop_source {
+_EXPORT_STD class stop_source {
 public:
     stop_source() : _State{new _Stop_state} {}
     explicit stop_source(nostopstate_t) noexcept : _State{} {}
@@ -353,19 +352,21 @@ inline void _Stop_callback_base::_Detach() noexcept {
     _Token._State->_Current_callback.wait(this, memory_order_acquire);
 }
 
-template <class _Callback>
+_EXPORT_STD template <class _Callback>
 class stop_callback : public _Stop_callback_base {
 public:
     using callback_type = _Callback;
 
-    template <class _CbInitTy, enable_if_t<is_constructible_v<_Callback, _CbInitTy>, int> = 0>
+    template <class _CbInitTy>
+        requires is_constructible_v<_Callback, _CbInitTy>
     explicit stop_callback(const stop_token& _Token, _CbInitTy&& _Cb_) noexcept(
         is_nothrow_constructible_v<_Callback, _CbInitTy>)
         : _Stop_callback_base{_Invoke_by_stop}, _Cb(_STD forward<_CbInitTy>(_Cb_)) {
         _Attach(_Token);
     }
 
-    template <class _CbInitTy, enable_if_t<is_constructible_v<_Callback, _CbInitTy>, int> = 0>
+    template <class _CbInitTy>
+        requires is_constructible_v<_Callback, _CbInitTy>
     explicit stop_callback(stop_token&& _Token, _CbInitTy&& _Cb_) noexcept(
         is_nothrow_constructible_v<_Callback, _CbInitTy>)
         : _Stop_callback_base{_Invoke_by_stop}, _Cb(_STD forward<_CbInitTy>(_Cb_)) {
@@ -393,6 +394,6 @@ _STD_END
 _STL_RESTORE_CLANG_WARNINGS
 #pragma warning(pop)
 #pragma pack(pop)
-#endif // _HAS_CXX20
+#endif // ^^^ _HAS_CXX20 ^^^
 #endif // _STL_COMPILER_PREPROCESSOR
 #endif // _STOP_TOKEN_
